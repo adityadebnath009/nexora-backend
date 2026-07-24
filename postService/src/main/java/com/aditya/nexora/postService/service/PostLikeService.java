@@ -6,9 +6,12 @@ import com.aditya.nexora.postService.exception.BadRequestException;
 import com.aditya.nexora.postService.exception.ResourceNotFoundException;
 import com.aditya.nexora.postService.repository.PostLikeRepository;
 import com.aditya.nexora.postService.repository.PostRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
+@Slf4j
 @Service
 public class PostLikeService {
 
@@ -22,14 +25,16 @@ public class PostLikeService {
     public boolean toggleLikePost(Long postId, Long userId) {
 
         if (!postRepository.existsById(postId)) {
+            log.error("Post not found with ID: {}", postId);
             throw new ResourceNotFoundException("Post not found with ID: " + postId);
         }
 
         if (postLikeRepository.existsByPostIdAndUserId(postId, userId)) {
-
+            log.info("Post already liked by user with ID: {}", userId);
             postLikeRepository.deleteByPostIdAndUserId(postId, userId);
             return false;
         } else {
+            log.info("Post liked by user with ID: {}", userId);
             PostLike postLike = PostLike.builder()
                     .postId(postId)
                     .userId(userId)
@@ -38,28 +43,12 @@ public class PostLikeService {
             return true;
         }
     }
-
-
-    @Transactional
-    public void likePost(Long postId, Long userId) {
-        if(!postRepository.existsById(postId))
-        {
-            throw new BadRequestException("Post not found with id: " + postId);
-        }
-        if(postLikeRepository.existsByPostIdAndUserId(postId, userId))
-        {
-            throw new BadRequestException("User already liked this post");
-        }
-        PostLike postLike = PostLike.builder()
-                .postId(postId)
-                .userId(userId)
-                .build();
-        postLikeRepository.save(postLike);
-    }
     public void unlikePost(Long postId, Long userId) {
+        log.info("Unliking post with ID: {} for user with ID: {}", postId, userId);
         postLikeRepository.deleteByPostIdAndUserId(postId, userId);
     }
     public long countLikes(Long postId) {
+        log.info("Counting likes for post with ID: {}", postId);
         return postLikeRepository.countByPostId(postId);
     }
 }

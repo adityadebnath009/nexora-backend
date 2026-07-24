@@ -44,6 +44,7 @@ public class PostService {
     }
 
     public List<PostDTO> getAllPosts(Long userId) {
+        log.info("Fetching all posts for user id: {}", userId);
         return postRepository.findByUserId(userId).stream()
                 .map(post -> new PostDTO(
                     post.getId(),
@@ -56,6 +57,7 @@ public class PostService {
     }
 
     public PostDTO getPostById(Long postId) {
+        log.info("Fetching post with id: {}", postId);
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResourceNotFoundException("Post not found with ID:" + postId));
         return new PostDTO(
