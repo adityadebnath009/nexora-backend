@@ -1,5 +1,7 @@
 package com.aditya.nexora.userService.service;
 
+import com.aditya.nexora.userService.entity.CustomUserDetails;
+import com.aditya.nexora.userService.enums.Role;
 import com.aditya.nexora.userService.dto.LoginRequestDTO;
 import com.aditya.nexora.userService.dto.SignUpRequestDTO;
 import com.aditya.nexora.userService.dto.UserDTO;
@@ -11,7 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -23,12 +27,14 @@ public class UserService implements UserServiceImpl{
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
+    private final JwtService jwtService;
     private final UsernameGenerator usernameGenerator;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, UsernameGenerator usernameGenerator) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, JwtService jwtService, UsernameGenerator usernameGenerator) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.modelMapper = modelMapper;
+        this.jwtService = jwtService;
         this.usernameGenerator = usernameGenerator;
     }
 
@@ -41,7 +47,6 @@ public class UserService implements UserServiceImpl{
         }
 
         String username = signUpRequestDTO.userName();
-        // 2. If username provided, validate it; if not provided, generate a base one
         if (username != null && !username.isBlank()) {
             username = username.toLowerCase().trim();
             if (userRepository.existsByUsername(username)) {
@@ -63,6 +68,7 @@ public class UserService implements UserServiceImpl{
                 name(signUpRequestDTO.name()).
                 email(signUpRequestDTO.email()).
                 username(username).
+                roles(Collections.singleton(Role.USER)).
                 password(passwordEncoder.encode(signUpRequestDTO.password())).
                 build();
 
@@ -72,7 +78,16 @@ public class UserService implements UserServiceImpl{
 
     @Override
     public String login(LoginRequestDTO loginRequestDTO) {
-        return "";
+        log.info("User Login Request: {}", loginRequestDTO);
+        User user = userRepository.findByEmail(loginRequestDTO.email()).orElseThrow(() -> new BadRequestException("User not found with email: " + loginRequestDTO.email()));
+        if(!passwordEncoder.matches(loginRequestDTO.password(), user.getPassword())){
+            log.error("Invalid password or Email");
+            throw new BadRequestException("Invalid password or Email");
+        }
+        log.info("User logged in successfully: {}", user);
+
+        return jwtService.generateAccessToken(new CustomUserDetails(user));
+
     }
 
     @Override
@@ -82,11 +97,13 @@ public class UserService implements UserServiceImpl{
     }
 
     @Override
+    @Transactional
     public UserDTO updateProfile(Long userId, UserDTO userDTO) {
         User user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("User not found with id: " + userId));
         user.setName(userDTO.name());
         user.setAbout(userDTO.about());
         user.setHeadline(userDTO.headLine());
+        user.setRoles(userDTO.roles());
         user.setProfilePictureUrl(userDTO.profilePictureUrl());
         User savedUser = userRepository.save(user);
         return mapToDTO(savedUser);
@@ -101,8 +118,17 @@ public class UserService implements UserServiceImpl{
                 user.getHeadline(),
                 user.getAbout(),
                 user.getProfilePictureUrl(),
+                user.getRoles(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
+    }
+
+    public UserDTO getUserByUsername(String username) {
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new BadRequestException("User not found with username: " + username));
+        return mapToDTO(user);
+    }
+    public UserDTO getByUserId(Long userId) {
+        return mapToDTO(userRepository.findById(userId).orElseThrow(() -> new BadRequestException("User not found with id: " + userId)));
     }
 }

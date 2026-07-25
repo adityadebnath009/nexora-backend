@@ -1,5 +1,6 @@
 package com.aditya.nexora.userService.repository;
 
+import com.aditya.nexora.userService.dto.UserDTO;
 import com.aditya.nexora.userService.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -19,4 +20,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
 
     List<User> findByNameContainingIgnoreCase(String name);
+
+    Optional<User> findById(Long id);
 }

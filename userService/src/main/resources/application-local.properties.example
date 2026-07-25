@@ -1,0 +1,5 @@
+# Local Configuration for userService
+# Copy this file to application-local.properties and fill in the values.
+
+# Database local password
+spring.datasource.password=your_new_neon_db_password

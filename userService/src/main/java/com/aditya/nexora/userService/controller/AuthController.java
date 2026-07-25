@@ -1,6 +1,7 @@
 package com.aditya.nexora.userService.controller;
 
 
+import com.aditya.nexora.userService.dto.LoginRequestDTO;
 import com.aditya.nexora.userService.dto.SignUpRequestDTO;
 import com.aditya.nexora.userService.dto.UserDTO;
 import com.aditya.nexora.userService.dto.UsernameCheckResponseDTO;
@@ -27,6 +28,12 @@ public class AuthController {
     public ResponseEntity<UserDTO> signUp(@RequestBody @Valid SignUpRequestDTO signUpRequestDTO) {
 
         return ResponseEntity.status(HttpStatus.OK).body(userService.signUp(signUpRequestDTO));
+
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<String> login(@RequestBody @Valid LoginRequestDTO loginRequestDTO) {
+        return ResponseEntity.ok(userService.login(loginRequestDTO));
 
     }
 

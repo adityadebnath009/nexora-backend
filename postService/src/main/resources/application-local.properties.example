@@ -1,0 +1,9 @@
+# Local Configuration for postService
+# Copy this file to application-local.properties and fill in the values.
+
+# Database local password
+spring.datasource.password=your_new_neon_db_password
+
+# Cloudinary local API key and secret
+cloudinary.api-key=your_cloudinary_api_key
+cloudinary.api-secret=your_cloudinary_api_secret
