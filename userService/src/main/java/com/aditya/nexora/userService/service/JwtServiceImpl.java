@@ -1,5 +1,6 @@
 package com.aditya.nexora.userService.service;
 
+import com.aditya.nexora.userService.entity.CustomUserDetails;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 
 
@@ -32,7 +34,14 @@ public class JwtServiceImpl implements JwtService{
 
     @Override
     public String generateAccessToken(UserDetails userDetails) {
-        Map<String, Object> claims = Map.of("email", userDetails.getUsername(), "roles", userDetails.getAuthorities());
+
+        CustomUserDetails customUserDetails = (CustomUserDetails) userDetails;
+        List<String> roles =  customUserDetails.getAuthorities().stream()
+                .map(x -> x.getAuthority()).toList();
+        Map<String, Object> claims = Map.of(
+                "userId", customUserDetails.getUser().getId(),
+                "email", customUserDetails.getUser().getEmail(),
+                "roles", roles);
 
         return buildToken(claims, userDetails.getUsername(), accessSecretKey, accessExpirationTime);
     }
