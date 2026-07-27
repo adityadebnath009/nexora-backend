@@ -5,11 +5,13 @@ import org.springframework.http.HttpStatus;
 public class ForbiddenException extends ApiException{
 
 
-    public ForbiddenException(String message, HttpStatus status) {
-        super(message, status);
-    }
+    public ForbiddenException(String message, Throwable cause)
+    {
+        super(message, cause, HttpStatus.FORBIDDEN);
 
-    protected ForbiddenException(String message, Throwable cause, HttpStatus status) {
-        super(message, cause, status);
+    }
+    public ForbiddenException(String message)
+    {
+        super(message, HttpStatus.FORBIDDEN);
     }
 }

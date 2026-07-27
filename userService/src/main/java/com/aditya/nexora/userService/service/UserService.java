@@ -1,134 +1,29 @@
 package com.aditya.nexora.userService.service;
 
-import com.aditya.nexora.userService.entity.CustomUserDetails;
-import com.aditya.nexora.userService.enums.Role;
+import com.aditya.nexora.userService.dto.AuthResponseDTO;
 import com.aditya.nexora.userService.dto.LoginRequestDTO;
 import com.aditya.nexora.userService.dto.SignUpRequestDTO;
 import com.aditya.nexora.userService.dto.UserDTO;
 import com.aditya.nexora.userService.entity.User;
-import com.aditya.nexora.userService.exception.BadRequestException;
-import com.aditya.nexora.userService.exception.UserAlreadyExistedException;
-import com.aditya.nexora.userService.repository.UserRepository;
-import lombok.extern.slf4j.Slf4j;
-import org.modelmapper.ModelMapper;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
+public interface UserService {
 
+    public UserDTO signUp(SignUpRequestDTO signUpRequestDTO);
 
-@Slf4j
-@Service
-public class UserService implements UserServiceImpl{
+    public AuthResponseDTO login(LoginRequestDTO loginRequestDTO);
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final ModelMapper modelMapper;
-    private final JwtService jwtService;
-    private final UsernameGenerator usernameGenerator;
+    public UserDTO getUserByEmail(String email);
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, ModelMapper modelMapper, JwtService jwtService, UsernameGenerator usernameGenerator) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.modelMapper = modelMapper;
-        this.jwtService = jwtService;
-        this.usernameGenerator = usernameGenerator;
-    }
+    public UserDTO updateProfile(Long userId, UserDTO userDTO);
 
-    @Override
-    public UserDTO signUp(SignUpRequestDTO signUpRequestDTO) {
-        log.info("User SignUp Request: {}", signUpRequestDTO);
-        if(userRepository.existsByEmail(signUpRequestDTO.email())){
-            log.error("User with email {} already exists", signUpRequestDTO.email());
-            throw new UserAlreadyExistedException("User with email " + signUpRequestDTO.email() + " already exists");
-        }
+    public void verifyEmail(String token);
+    public AuthResponseDTO refresh(String refreshToken);
 
-        String username = signUpRequestDTO.userName();
-        if (username != null && !username.isBlank()) {
-            username = username.toLowerCase().trim();
-            if (userRepository.existsByUsername(username)) {
-                List<String> suggestions = usernameGenerator.generateUsernameSuggestions(username);
-                throw new BadRequestException("Username is already taken. Suggestions: " + suggestions);
-            }
-        } else {
-            // Generate unique username from name
-            String base = usernameGenerator.generateBaseUsername(signUpRequestDTO.name());
-            username = base;
-            while (userRepository.existsByUsername(username)) {
-                int suffix = ThreadLocalRandom.current().nextInt(100, 10000);
-                username = base + "-" + suffix;
-            }
-        }
+    public void logout(String refreshToken);
+
+    public void forgotPassword(String email);
+    public void resetPassword(String token, String newPassword);
+    public void changePassword(Long userId, String oldPassword, String newPassword);
 
 
-        User user = User.builder().
-                name(signUpRequestDTO.name()).
-                email(signUpRequestDTO.email()).
-                username(username).
-                roles(Collections.singleton(Role.USER)).
-                password(passwordEncoder.encode(signUpRequestDTO.password())).
-                build();
-
-        User savedUser = userRepository.save(user);
-        return mapToDTO(savedUser);
-    }
-
-    @Override
-    public String login(LoginRequestDTO loginRequestDTO) {
-        log.info("User Login Request: {}", loginRequestDTO);
-        User user = userRepository.findByEmail(loginRequestDTO.email()).orElseThrow(() -> new BadRequestException("User not found with email: " + loginRequestDTO.email()));
-        if(!passwordEncoder.matches(loginRequestDTO.password(), user.getPassword())){
-            log.error("Invalid password or Email");
-            throw new BadRequestException("Invalid password or Email");
-        }
-        log.info("User logged in successfully: {}", user);
-
-        return jwtService.generateAccessToken(new CustomUserDetails(user));
-
-    }
-
-    @Override
-    public UserDTO getUserByEmail(String email) {
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new BadRequestException("User not found with email: " + email));
-        return mapToDTO(user);
-    }
-
-    @Override
-    @Transactional
-    public UserDTO updateProfile(Long userId, UserDTO userDTO) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new BadRequestException("User not found with id: " + userId));
-        user.setName(userDTO.name());
-        user.setAbout(userDTO.about());
-        user.setHeadline(userDTO.headLine());
-        user.setRoles(userDTO.roles());
-        user.setProfilePictureUrl(userDTO.profilePictureUrl());
-        User savedUser = userRepository.save(user);
-        return mapToDTO(savedUser);
-    }
-
-    private UserDTO mapToDTO(User user) {
-        return new UserDTO(
-                user.getId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getName(),
-                user.getHeadline(),
-                user.getAbout(),
-                user.getProfilePictureUrl(),
-                user.getRoles(),
-                user.getCreatedAt(),
-                user.getUpdatedAt()
-        );
-    }
-
-    public UserDTO getUserByUsername(String username) {
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new BadRequestException("User not found with username: " + username));
-        return mapToDTO(user);
-    }
-    public UserDTO getByUserId(Long userId) {
-        return mapToDTO(userRepository.findById(userId).orElseThrow(() -> new BadRequestException("User not found with id: " + userId)));
-    }
 }

@@ -1,13 +1,12 @@
 package com.aditya.nexora.userService.controller;
 
+import com.aditya.nexora.userService.dto.ChangePasswordRequestDTO;
 import com.aditya.nexora.userService.dto.UserDTO;
-import com.aditya.nexora.userService.entity.CustomUserDetails;
-import com.aditya.nexora.userService.entity.User;
 import com.aditya.nexora.userService.service.UserService;
+import com.aditya.nexora.userService.service.UserServiceImpl;
+import jakarta.validation.Valid;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -15,11 +14,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/user")
 public class UserController {
 
-    private final UserService userService;
+    private final UserServiceImpl userService;
     private final ModelMapper modelMapper;
 
-    public UserController(UserService userService, ModelMapper modelMapper) {
-        this.userService = userService;
+    public UserController(UserServiceImpl userService, ModelMapper modelMapper) {
+        this.userService = (UserServiceImpl) userService;
         this.modelMapper = modelMapper;
     }
 
@@ -45,7 +44,13 @@ public class UserController {
         return ResponseEntity.ok(userService.updateProfile(userId, userDTO));
     }
 
-
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> changePassword(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody @Valid ChangePasswordRequestDTO request) {
+        userService.changePassword(userId, request.oldPassword(), request.newPassword());
+        return ResponseEntity.noContent().build();
+    }
 
 
 

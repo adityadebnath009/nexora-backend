@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f5f7fb;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        .container {
+            width: 100%;
+            padding: 40px 0;
+        }
+        .card {
+            width: 650px;
+            margin: auto;
+            background: white;
+            border-radius: 18px;
+            overflow: hidden;
+            box-shadow: 0 15px 45px rgba(0,0,0,.08);
+        }
+        .header {
+            background: linear-gradient(135deg, #4F46E5, #7C3AED);
+            padding: 45px;
+            text-align: center;
+            color: white;
+        }
+        .logo {
+            font-size: 38px;
+            font-weight: bold;
+        }
+        .tagline {
+            opacity: .85;
+            margin-top: 10px;
+            font-size: 15px;
+        }
+        .content {
+            padding: 45px;
+            color: #333;
+            line-height: 1.8;
+        }
+        .button {
+            display: inline-block;
+            background: #4F46E5;
+            color: white !important;
+            padding: 16px 34px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            margin: 25px 0;
+        }
+        .footer {
+            padding: 30px;
+            text-align: center;
+            color: #777;
+            font-size: 13px;
+            background: #fafafa;
+        }
+        .link {
+            color: #4F46E5;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <div class="header">
+            <div class="logo">🚀 Nexora</div>
+            <div class="tagline">Build. Connect. Grow.</div>
+        </div>
+        <div class="content">
+            <h2>Welcome to Nexora 👋</h2>
+            <p>Thanks for creating your account.</p>
+            <p>Please verify your email address to activate your profile and unlock all developer features.</p>
+            <div style="text-align:center">
+                <a th:href="${verificationLink}" class="button">Verify Email</a>
+            </div>
+            <p>If the button doesn't work, copy this link:</p>
+            <p class="link" th:text="${verificationLink}"></p>
+            <p>If you didn't create this account, you can safely ignore this email.</p>
+        </div>
+        <div class="footer">
+            © 2026 Nexora<br>
+            AI-powered Professional Network for Developers
+        </div>
+    </div>
+</div>
+</body>
+</html>
