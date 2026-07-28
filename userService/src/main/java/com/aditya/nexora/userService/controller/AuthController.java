@@ -40,10 +40,9 @@ public class AuthController {
 
 
     @GetMapping("/verify-email")
-    public ResponseEntity<String> verifyEmail(@RequestParam("token")String token)
-    {
+    public ResponseEntity<Void> verifyEmail(@RequestParam("token") String token) {
         userService.verifyEmail(token);
-        return ResponseEntity.status(HttpStatus.OK).body("Email verified successfully! You can now log in to Nexora.");
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/refresh")

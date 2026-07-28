@@ -5,8 +5,10 @@ package com.aditya.nexora.userService.exception;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
@@ -41,6 +43,10 @@ public class GlobalHandleApiResponse implements ResponseBodyAdvice {
 
     @Override
     public @Nullable Object beforeBodyWrite(@Nullable Object body, MethodParameter returnType, MediaType selectedContentType, Class selectedConverterType, ServerHttpRequest request, ServerHttpResponse response) {
+        if (response instanceof ServletServerHttpResponse servletResponse
+                && servletResponse.getServletResponse().getStatus() == HttpStatus.NO_CONTENT.value()) {
+            return body;
+        }
 
         // If the body is already raw binary or resource, return it directly without wrapping
         if (body instanceof byte[] || body instanceof org.springframework.core.io.Resource) {

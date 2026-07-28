@@ -110,6 +110,7 @@ public class UserServiceImpl implements UserService{
         return mapToDTO(savedUser);
     }
 
+    @Transactional
     @Override
     public AuthResponseDTO login(LoginRequestDTO loginRequestDTO) {
         log.info("User Login Request: {}", loginRequestDTO);
@@ -136,6 +137,7 @@ public class UserServiceImpl implements UserService{
                 expiryDate(Instant.now().plus(30, ChronoUnit.DAYS)).
                 build();
         refreshTokenRepository.deleteByUser(user);
+        refreshTokenRepository.flush();
         refreshTokenRepository.save(refreshToken);
 
         return new AuthResponseDTO(accessTokenString, refreshTokenString, mapToDTO(user));
@@ -191,6 +193,7 @@ public class UserServiceImpl implements UserService{
 
     }
 
+    @Transactional
     @Override
     public AuthResponseDTO refresh(String refreshToken) {
 
@@ -200,9 +203,11 @@ public class UserServiceImpl implements UserService{
         {
             log.info("Refresh token expiry date: {}", refreshTokenString.getExpiryDate());
             refreshTokenRepository.delete(refreshTokenString);
+            refreshTokenRepository.flush();
             throw new BadRequestException("Refresh token has expired. Please login again.");
         }
         refreshTokenRepository.delete(refreshTokenString);
+        refreshTokenRepository.flush();
         log.info("Refresh token deleted successfully for user: {}", refreshTokenString.getUser().getEmail());
 
         User user = refreshTokenString.getUser();
@@ -223,6 +228,7 @@ public class UserServiceImpl implements UserService{
         return new AuthResponseDTO(accessTokenString, newRefreshTokenString, mapToDTO(user));
     }
 
+    @Transactional
     @Override
     public void logout(String refreshToken) {
         log.info("User logout: {}", refreshToken);
