@@ -14,3 +14,9 @@
 # Environment
 .env
 **/application-local.properties
+
+# Nexora Design & Doc Files
+.agents/
+docs/
+nexora_brand_guide.html
+nexora_brand_guide.pdf
