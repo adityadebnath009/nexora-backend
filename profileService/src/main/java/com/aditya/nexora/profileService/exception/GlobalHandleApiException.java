@@ -1,6 +1,8 @@
-package com.aditya.nexora.userService.exception;
+package com.aditya.nexora.profileService.exception;
 
 
+import com.aditya.nexora.profileService.exception.ApiError;
+import com.aditya.nexora.profileService.exception.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.ConstraintViolationException;

@@ -1,4 +1,6 @@
-package com.aditya.nexora.userService.exception;
+package com.aditya.nexora.profileService.exception;
+
+import com.aditya.nexora.profileService.exception.ApiError;
 
 public record ApiResponse<T>(
         boolean success,

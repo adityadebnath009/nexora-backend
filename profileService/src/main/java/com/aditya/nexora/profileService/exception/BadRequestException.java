@@ -1,4 +1,4 @@
-package com.aditya.nexora.userService.exception;
+package com.aditya.nexora.profileService.exception;
 
 import org.springframework.http.HttpStatus;
 
