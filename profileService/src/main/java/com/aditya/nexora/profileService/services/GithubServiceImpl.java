@@ -1,0 +1,231 @@
+package com.aditya.nexora.profileService.services;
+
+import com.aditya.nexora.profileService.dtos.GitHubProfileDTO;
+import com.aditya.nexora.profileService.dtos.RepositoryDTO;
+import com.aditya.nexora.profileService.exception.BadRequestException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClient;
+
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+
+@Slf4j
+@Service
+public class GithubServiceImpl implements GithubService{
+
+
+    private final String clientId;
+    private final String clientSecret;
+    private final RestClient restClient;
+
+    public GithubServiceImpl(@Value("${github.client-id}") String clientId, @Value("${github.client-secret}") String clientSecret, RestClient restClient) {
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
+        this.restClient = restClient;
+    }
+
+    @Override
+    public String exchangeCodeForAccessToken(String code) {
+
+        String url = "https://github.com/login/oauth/access_token";
+
+        Map<String, String> params = Map.of("client_id", clientId, "client_secret", clientSecret, "code", code);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Accept", "application/json");
+        headers.set("Content-Type", "application/json");
+
+        HttpEntity<Map<String, String>> request = new HttpEntity<>(params,headers);
+
+        try{
+            Map<String, Object> response = restClient.post()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .body(params)
+                    .retrieve()
+                    .body(Map.class);
+
+            if(response!=null && response.containsKey("access_token")){
+                return (String) response.get("access_token");
+            }
+            else {
+                throw new BadRequestException("Github Access Token not found in response" + response.toString());
+            }
+
+        }
+        catch (HttpClientErrorException e){
+            log.error("Error while exchanging code for access token", e);
+            throw new BadRequestException("GitHub OAuth code exchange failed: "+ e.getResponseBodyAsString());
+        }
+    }
+
+    @Override
+    public GitHubProfileDTO fetchProfile(String accessToken) {
+
+        String url = "https://api.github.com/user";
+
+        try {
+
+            Map<String, Object> body = restClient.get()
+                    .uri(url)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .header(HttpHeaders.USER_AGENT, "Nexora")
+                    .retrieve()
+                    .body(Map.class);
+
+            if (body == null) {
+                throw new BadRequestException("Github Profile not found");
+            }
+
+            log.info("Github Profile: {}", body);
+            return new GitHubProfileDTO(
+                    (String) body.get("login"),
+                    (String) body.get("avatar_url"),
+                    (String) body.get("bio"),
+                    getAsInteger(body, "followers"),
+                    getAsInteger(body, "following"),
+                    getAsInteger(body, "public_repos"),
+                    (String) body.get("location"),
+                    (String) body.get("company"),
+                    (String) body.get("blog")
+            );
+
+
+        }
+        catch (HttpClientErrorException e){
+            log.error("Error while fetching profile", e);
+            throw new BadRequestException("GitHub Profile fetch failed: "+ e.getResponseBodyAsString());
+        }
+
+    }
+
+    @Override
+
+    public List<RepositoryDTO> fetchRepositories(String accessToken) {
+        String url = "https://api.github.com/user/repos?per_page=100&type=owner";
+
+        try {
+            List<Map<String, Object>> reposList = restClient.get()
+                    .uri(url)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .header(HttpHeaders.USER_AGENT, "Nexora")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+
+            if (reposList == null) {
+                return List.of();
+            }
+
+            List<RepositoryDTO> dtos = new java.util.ArrayList<>();
+            for (Map<String, Object> repo : reposList) {
+                LocalDateTime createdAt = parseIsoDateTime((String) repo.get("created_at"));
+                LocalDateTime updatedAt = parseIsoDateTime((String) repo.get("updated_at"));
+
+                String visibility = Boolean.TRUE.equals(repo.get("private")) ? "PRIVATE" : "PUBLIC";
+
+                List<String> topics = (List<String>) repo.get("topics");
+                if (topics == null) {
+                    topics = List.of();
+                }
+
+                dtos.add(new RepositoryDTO(
+                        (String) repo.get("name"),
+                        (String) repo.get("description"),
+                        getAsInteger(repo, "stargazers_count"),
+                        getAsInteger(repo, "forks_count"),
+                        (String) repo.get("language"),
+                        createdAt,
+                        updatedAt,
+                        visibility,
+                        topics
+                ));
+            }
+            return dtos;
+        }
+        catch (HttpClientErrorException e) {
+            log.error("Error while fetching repositories", e);
+            throw new BadRequestException("GitHub Repositories fetch failed: " + e.getResponseBodyAsString());
+        }
+    }
+
+    @Override
+    public String fetchReadme(String owner, String repo, String accessToken) {
+        String url = "https://api.github.com/repos/" + owner + "/" + repo + "/readme";
+        try{
+            String respone = restClient.get().
+                    uri(url)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .header(HttpHeaders.USER_AGENT, "Nexora")
+                    .accept(MediaType.valueOf("application/vnd.github.v3.raw"))
+                    .retrieve()
+                    .body(String.class);
+
+            return respone;
+
+
+        }
+        catch (HttpClientErrorException.NotFound e) {
+            log.warn("README not found for repo: {}/{}", owner, repo);
+            return null;
+        }
+        catch (HttpClientErrorException e){
+            log.error("Error while fetching readme", e);
+            throw new BadRequestException("No README found for this repository" + e.getMessage());
+        }
+
+    }
+
+    @Override
+    public Map<String, Long> fetchLanguages(String owner, String repo, String accessToken) {
+
+        String url = "https://api.github.com/repos/{owner}/{repo}/languages";
+        try{
+            Map<String, Long> response = restClient.get()
+                    .uri(url, owner, repo)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .header(HttpHeaders.USER_AGENT, "Nexora")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<Map<String, Long>>() {});
+            return response;
+        }
+        catch (HttpClientErrorException.NotFound e) {
+            log.warn("Languages not found for repo: {}/{}", owner, repo);
+            return Map.of();
+        }
+        catch (HttpClientErrorException e){
+            log.error("Error while fetching languages", e);
+            throw new BadRequestException("No languages found for this repository: "+ e.getMessage());
+
+
+        }
+
+    }
+
+
+    private Integer getAsInteger(Map<String, Object> map, String key) {
+        Object val = map.get(key);
+        if (val instanceof Number num) {
+            return num.intValue();
+        }
+        return 0;
+    }
+
+    private LocalDateTime parseIsoDateTime(String isoString) {
+        if (isoString == null) return null;
+        return LocalDateTime.ofInstant(java.time.Instant.parse(isoString), java.time.ZoneId.systemDefault());
+    }
+}
