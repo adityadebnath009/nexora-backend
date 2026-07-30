@@ -91,6 +91,7 @@ public class GithubServiceImpl implements GithubService{
 
             log.info("Github Profile: {}", body);
             return new GitHubProfileDTO(
+                    getAsLong(body, "id"),
                     (String) body.get("login"),
                     (String) body.get("avatar_url"),
                     (String) body.get("bio"),
@@ -142,8 +143,10 @@ public class GithubServiceImpl implements GithubService{
                 }
 
                 dtos.add(new RepositoryDTO(
+                        getAsLong(repo, "id"),
                         (String) repo.get("name"),
                         (String) repo.get("description"),
+                        (String) repo.get("html_url"),
                         getAsInteger(repo, "stargazers_count"),
                         getAsInteger(repo, "forks_count"),
                         (String) repo.get("language"),
@@ -222,6 +225,13 @@ public class GithubServiceImpl implements GithubService{
             return num.intValue();
         }
         return 0;
+    }
+    private Long getAsLong(Map<String, Object> map, String key) {
+        Object val = map.get(key);
+        if (val instanceof Number num) {
+            return num.longValue();
+        }
+        return 0L;
     }
 
     private LocalDateTime parseIsoDateTime(String isoString) {
