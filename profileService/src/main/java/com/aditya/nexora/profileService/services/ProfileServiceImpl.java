@@ -10,6 +10,7 @@ import com.aditya.nexora.profileService.exception.ResourceNotFoundException;
 import com.aditya.nexora.profileService.repository.ConnectedSourceRepository;
 import com.aditya.nexora.profileService.repository.ProjectRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
+@Service
 public class ProfileServiceImpl implements ProfileService{
 
     private final ConnectedSourceRepository connectedSourceRepository;
