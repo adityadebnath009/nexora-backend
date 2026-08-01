@@ -6,6 +6,8 @@ import com.aditya.nexora.postService.repository.PostLikeRepository;
 import com.aditya.nexora.postService.service.PostLikeService;
 import org.apache.coyote.Response;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -19,17 +21,19 @@ public class PostLikeController {
     }
 
     @DeleteMapping("/{postId}/unlike")
-    public ResponseEntity<?> unlikePost(@RequestHeader("X-User-Id") Long userId, @PathVariable("postId") Long postId) {
+    public ResponseEntity<?> unlikePost(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("postId") Long postId) {
+        Long userId = jwt.getClaim("userId");
         postLikeService.unlikePost(postId, userId);
         return ResponseEntity.noContent().build();
-
     }
 
     @PostMapping("/{postId}/like")
     public ResponseEntity<String> toggleLike(
             @PathVariable("postId") Long postId,
-            @RequestHeader("X-User-Id") Long userId) {
-
+            @AuthenticationPrincipal Jwt jwt) {
+        Long userId = jwt.getClaim("userId");
         boolean isLiked = postLikeService.toggleLikePost(postId, userId);
 
         String message = isLiked ? "Post liked successfully" : "Post unliked successfully";

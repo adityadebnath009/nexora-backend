@@ -7,6 +7,8 @@ import com.aditya.nexora.postService.service.PostService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,10 +24,11 @@ public class PostController {
     }
 
     @PostMapping(value = "/", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<PostDTO> createPost(@ModelAttribute @Valid PostCreateRequestDTO postCreateRequestDTO, @RequestHeader("X-User-Id") Long userId) {
-
+    public ResponseEntity<PostDTO> createPost(
+            @ModelAttribute @Valid PostCreateRequestDTO postCreateRequestDTO,
+            @AuthenticationPrincipal Jwt jwt) {
+        Long userId = jwt.getClaim("userId");
         return ResponseEntity.ok(postService.createPost(postCreateRequestDTO, userId));
-
     }
     @GetMapping("/users/{userId}")
     public ResponseEntity<List<PostDTO>> getAllPosts(@PathVariable("userId") Long userId)

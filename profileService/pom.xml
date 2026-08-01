@@ -108,6 +108,12 @@
 		</dependency>
 		<!-- Test Starter -->
 
+		<!-- Add inside the <dependencies> block in profileService/pom.xml -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+		</dependency>
+
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
