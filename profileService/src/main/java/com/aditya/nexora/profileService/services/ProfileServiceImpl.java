@@ -366,11 +366,9 @@ public class ProfileServiceImpl implements ProfileService{
 
     @Override
     public PublicProfileDTO getPublicProfile(String username) {
-        ApiResponse<UserResponseDTO> response = userClient.getUserByUsername(username);
 
-        if(response==null || response.data()==null)
-        {
-            log.error("User not found with username: {}", username);
+        ApiResponse<UserResponseDTO> response = userClient.getUserByUsername(username);
+        if (response == null || response.data() == null) {
             throw new ResourceNotFoundException("User not found with username: " + username);
         }
         UserResponseDTO userDetails = response.data();
@@ -379,10 +377,49 @@ public class ProfileServiceImpl implements ProfileService{
         List<Experience> experiences = getExperiences(userId);
         List<Education> educations = getEducations(userId);
         List<Certification> certifications = getCertifications(userId);
-
         List<DerivedClaim> allClaims = getDerivedClaims(userId);
-        List<DerivedClaim> approvedClaims = allClaims.stream()
+
+        List<PublicExperienceDTO> publicExperiences = experiences.stream()
+                .map(exp -> new PublicExperienceDTO(
+                        exp.getTitle(),
+                        exp.getCompany(),
+                        exp.getLocation(),
+                        exp.getStartDate(),
+                        exp.getEndDate(),
+                        exp.isCurrent(),
+                        exp.getDescription()
+                ))
+                .toList();
+
+        List<PublicEducationDTO> publicEducations = educations.stream()
+                .map(edu -> new PublicEducationDTO(
+                        edu.getSchool(),
+                        edu.getDegree(),
+                        edu.getFieldOfStudy(),
+                        edu.getStartDate(),
+                        edu.getEndDate()
+                ))
+                .toList();
+
+        List<PublicCertificationDTO> publicCertifications = certifications.stream()
+                .map(cert -> new PublicCertificationDTO(
+                        cert.getName(),
+                        cert.getIssuingOrg(),
+                        cert.getIssueDate(),
+                        cert.getExpirationDate(),
+                        cert.getCredentialId(),
+                        cert.getCredentialUrl()
+                ))
+                .toList();
+
+        List<PublicClaimDTO> approvedClaims = allClaims.stream()
                 .filter(claim -> claim.getApprovalState() == ApprovalState.APPROVED)
+                .map(claim -> new PublicClaimDTO(
+                        claim.getClaimType(),
+                        claim.getClaimValue(),
+                        claim.getExplanation(),
+                        claim.getConfidence()
+                ))
                 .toList();
 
         return new PublicProfileDTO(
@@ -391,13 +428,14 @@ public class ProfileServiceImpl implements ProfileService{
                 userDetails.headLine(),
                 userDetails.about(),
                 userDetails.profilePictureUrl(),
-                experiences,
-                educations,
-                certifications,
+                publicExperiences,
+                publicEducations,
+                publicCertifications,
                 approvedClaims
-
         );
     }
+
+
 
 
 }

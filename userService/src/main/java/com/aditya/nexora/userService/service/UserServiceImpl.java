@@ -319,18 +319,9 @@ public class UserServiceImpl implements UserService{
     }
 
     public UserDTO getUserByUsername(String username) {
-        Optional<User> userOptional = userRepository.
-                findByUsername(username.toLowerCase().trim());
-
-       if(userOptional.isEmpty())
-       {
-           List<User> usersByName = userRepository.findByNameContainingIgnoreCase(username.toLowerCase().trim());
-           if(!usersByName.isEmpty())
-           {
-               userOptional = Optional.of(usersByName.get(0));
-           }
-       }
-       User user = userOptional.orElseThrow(() -> new BadRequestException("User not found with username: " + username));
+       User user = userRepository.
+               findByUsername(username.toLowerCase().trim())
+               .orElseThrow(() -> new BadRequestException("User not found with username: " + username));
        return mapToDTO(user);
     }
     public UserDTO getByUserId(Long userId) {

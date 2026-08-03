@@ -9,8 +9,8 @@ public record PublicProfileDTO(
     String headline,
     String about,
     String profilePictureUrl,
-    List<Experience> experiences,
-    List<Education> educations,
-    List<Certification> certifications,
-    List<DerivedClaim> approvedClaims
+    List<PublicExperienceDTO> experiences,
+    List<PublicEducationDTO> educations,
+    List<PublicCertificationDTO> certifications,
+    List<PublicClaimDTO> approvedClaims
 ) {}
