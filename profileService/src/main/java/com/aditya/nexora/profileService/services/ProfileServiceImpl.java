@@ -47,34 +47,68 @@ public class ProfileServiceImpl implements ProfileService{
 
     @Transactional
     @Override
-    public ConnectedSource connectGithub(Long userId, String authorizationCode) {
+    public ConnectedSourceDTO connectGithub(Long userId, String authorizationCode) {
+
         String accessToken = githubService.exchangeCodeForAccessToken(authorizationCode);
-        if(accessToken == null)
+
+        if(accessToken==null)
         {
             log.error("Failed to exchange code for access token");
-            return null;
+            throw new BadRequestException("Failed to exchange code for access token");
         }
-        GitHubProfileDTO   gitHubProfileDTO =  githubService.fetchProfile(accessToken);
+        GitHubProfileDTO gitHubProfileDTO = githubService.fetchProfile(accessToken);
+
         ConnectedSource connectedSource = connectedSourceRepository.findByUserIdAndProvider(userId, SourceProvider.GITHUB).orElse(null);
+
 
         if(connectedSource!=null)
         {
             connectedSource.setAccessToken(accessToken);
             connectedSource.setProviderUserId(gitHubProfileDTO.id());
+            connectedSource.setGithubUsername(gitHubProfileDTO.username ());
             connectedSource.setOwnershipStatus(OwnershipStatus.OWNERSHIP_VERIFIED);
-            return connectedSourceRepository.save(connectedSource);
+            connectedSource.setConnectedAt(Instant.now());
+            ConnectedSource saved = connectedSourceRepository.save(connectedSource);
+            return new ConnectedSourceDTO(
+                    saved.getProvider().name(),
+                    saved.getGithubUsername(),
+                    saved.getOwnershipStatus().name(),
+                    saved.getConnectedAt()
+            );
         }
         ConnectedSource connectedSourceNew = ConnectedSource.builder()
                 .userId(userId)
                 .provider(SourceProvider.GITHUB)
                 .providerUserId(gitHubProfileDTO.id())
+                .githubUsername(gitHubProfileDTO.username())
                 .accessToken(accessToken)
                 .ownershipStatus(OwnershipStatus.OWNERSHIP_VERIFIED)
+                .connectedAt(Instant.now())
                 .build();
 
-        connectedSourceRepository.save(connectedSourceNew);
-        return connectedSourceNew;
 
+        ConnectedSource saved = connectedSourceRepository.save(connectedSourceNew);
+        return new ConnectedSourceDTO(
+                saved.getProvider().name(),
+                saved.getGithubUsername(),
+                saved.getOwnershipStatus().name(),
+                saved.getConnectedAt()
+        );
+
+
+    }
+
+    @Override
+    public void disconnectGithub(Long userId) {
+
+        ConnectedSource connectedSource = connectedSourceRepository.findByUserIdAndProvider(userId, SourceProvider.GITHUB).orElse(null);
+        if(connectedSource==null)
+        {
+            log.error("Github Connection not found for id: {}", userId);
+            throw new ResourceNotFoundException("Github Connection not found for id: " + userId);
+        }
+        connectedSourceRepository.delete(connectedSource);
+        log.info("Github Connection deleted successfully for id: {}", userId);
     }
 
 

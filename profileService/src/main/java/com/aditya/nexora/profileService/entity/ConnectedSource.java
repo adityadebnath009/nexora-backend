@@ -1,6 +1,7 @@
 package com.aditya.nexora.profileService.entity;
 
 
+import com.aditya.nexora.profileService.config.AttributeEncryptor;
 import com.aditya.nexora.profileService.enums.OwnershipStatus;
 import com.aditya.nexora.profileService.enums.SourceProvider;
 import jakarta.persistence.*;
@@ -32,21 +33,32 @@ public class ConnectedSource {
     @Column(nullable = false)
     private SourceProvider provider;
 
-    @Column(nullable = false)
-    private String accessToken;
+    @Column(name = "github_username")
+    private String githubUsername;
 
+    @Convert(converter = AttributeEncryptor.class)
+    @Column(nullable = false, length = 1024)
+    private String accessToken;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OwnershipStatus ownershipStatus;
 
+    @Column(name = "connected_at", nullable = false)
+    private Instant connectedAt;
+
+    @Column(name = "last_sync_time")
+    private Instant lastSyncTime;
+
+    @Column(name = "last_analysis_time")
+    private Instant lastAnalysisTime;
+
+
+
     @Column(nullable = false)
     private Instant createdAt;
-
-
     @Column(nullable = false)
     private Instant updatedAt;
-
     @PrePersist
     public void createdAt() {
         this.createdAt = Instant.now();

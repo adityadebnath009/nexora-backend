@@ -22,17 +22,22 @@ public class ProfileController {
         this.profileService = profileService;
     }
 
-    // ==========================================
-    // GITHUB OAUTH & SYNC ENDPOINTS
-    // ==========================================
+
 
     @PostMapping("/sources/github/connect")
-    public ResponseEntity<ConnectedSource> connectGithub(
+    public ResponseEntity<ConnectedSourceDTO> connectGithub(
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody @Valid GithubConnectRequestDTO request) {
         Long userId = jwt.getClaim("userId");
-        ConnectedSource source = profileService.connectGithub(userId, request.code());
+        ConnectedSourceDTO source = profileService.connectGithub(userId, request.code());
         return ResponseEntity.ok(source);
+    }
+
+    @DeleteMapping("/sources/github")
+    public ResponseEntity<Map<String, String>> disconnectGithub(@AuthenticationPrincipal Jwt jwt) {
+        Long userId = jwt.getClaim("userId");
+        profileService.disconnectGithub(userId);
+        return ResponseEntity.ok(Map.of("message", "GitHub account disconnected successfully"));
     }
 
     @PostMapping("/sources/github/sync")
@@ -43,9 +48,7 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("message", "GitHub repositories synchronized successfully"));
     }
 
-    // ==========================================
-    // WORK EXPERIENCE CRUD
-    // ==========================================
+
 
     @GetMapping("/experiences")
     public ResponseEntity<List<Experience>> getExperiences(

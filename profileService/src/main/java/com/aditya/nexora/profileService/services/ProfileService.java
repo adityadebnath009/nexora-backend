@@ -6,7 +6,9 @@ import com.aditya.nexora.profileService.entity.*;
 import java.util.List;
 
 public interface ProfileService {
-    ConnectedSource connectGithub(Long userId, String authorizationCode);
+
+    ConnectedSourceDTO connectGithub(Long userId, String authorizationCode);
+    void disconnectGithub(Long userId);
     void syncGithubRepositories(Long userId);
 
 
