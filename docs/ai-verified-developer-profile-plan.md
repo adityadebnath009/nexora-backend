@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Nexora will help developers demonstrate what they can build, rather than relying only on self-reported titles, skills, and employment history. The product will create a living, evidence-backed technical profile from developer-owned sources and present it through a project-first portfolio.
+Nexora is a proof-of-work professional network where developers showcase verified engineering work instead of self-claimed skills. The product creates a living, evidence-backed technical profile from developer-owned sources and presents it through a project-first portfolio.
 
 The core principle is **evidence before assertion**: Nexora may analyze and summarize evidence, but it must never present an opaque AI judgment as fact.
 

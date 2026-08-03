@@ -1,6 +1,7 @@
 package com.aditya.nexora.profileService.services;
 
 import com.aditya.nexora.profileService.dtos.CertificationRequestDTO;
+import com.aditya.nexora.profileService.dtos.DeveloperProfileDTO;
 import com.aditya.nexora.profileService.dtos.EducationRequestDTO;
 import com.aditya.nexora.profileService.dtos.ExperienceRequestDTO;
 import com.aditya.nexora.profileService.entity.*;
@@ -34,5 +35,7 @@ public interface ProfileService {
     List<DerivedClaim> getDerivedClaims(Long userId);
     DerivedClaim updateClaimApproval(Long userId, Long claimId, String approvalState);
 
+    // Add inside ProfileService.java:
+    DeveloperProfileDTO getDeveloperProfile(Long userId);
 
 }

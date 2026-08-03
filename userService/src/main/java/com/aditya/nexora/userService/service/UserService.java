@@ -14,6 +14,9 @@ public interface UserService {
 
     public UserDTO getUserByEmail(String email);
 
+
+    public UserDTO getByUserId(Long userId);
+
     public UserDTO updateProfile(Long userId, UserDTO userDTO);
 
     public void verifyEmail(String token);

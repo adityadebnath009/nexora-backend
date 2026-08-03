@@ -174,4 +174,12 @@ public class ProfileController {
         DerivedClaim claim = profileService.updateClaimApproval(userId, claimId, request.approvalState());
         return ResponseEntity.ok(claim);
     }
+
+
+    @GetMapping("/me")
+    public ResponseEntity<DeveloperProfileDTO> getMyProfile(
+            @AuthenticationPrincipal Jwt jwt) {
+        Long userId = jwt.getClaim("userId");
+        return ResponseEntity.ok(profileService.getDeveloperProfile(userId));
+    }
 }

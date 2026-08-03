@@ -1,10 +1,12 @@
 package com.aditya.nexora.profileService.services;
 
+import com.aditya.nexora.profileService.client.UserClient;
 import com.aditya.nexora.profileService.dtos.*;
 import com.aditya.nexora.profileService.entity.*;
 import com.aditya.nexora.profileService.enums.ApprovalState;
 import com.aditya.nexora.profileService.enums.OwnershipStatus;
 import com.aditya.nexora.profileService.enums.SourceProvider;
+import com.aditya.nexora.profileService.exception.ApiResponse;
 import com.aditya.nexora.profileService.exception.BadRequestException;
 import com.aditya.nexora.profileService.exception.ForbiddenException;
 import com.aditya.nexora.profileService.exception.ResourceNotFoundException;
@@ -22,6 +24,7 @@ import java.util.Map;
 @Service
 public class ProfileServiceImpl implements ProfileService{
 
+    private final UserClient userClient;
     private final ConnectedSourceRepository connectedSourceRepository;
     private final ProjectRepository projectRepository;
     private final GithubService githubService;
@@ -30,7 +33,8 @@ public class ProfileServiceImpl implements ProfileService{
     private final DerivedClaimRepository derivedClaimRepository;
     private final CertificationRepository certificationRepository;
 
-    public ProfileServiceImpl(ConnectedSourceRepository connectedSourceRepository, ProjectRepository projectRepository, GithubService githubService, ExperienceRepository experienceRepository, EducationRepository educationRepository, DerivedClaimRepository derivedClaimRepository, CertificationRepository certificationRepository) {
+    public ProfileServiceImpl(UserClient userClient, ConnectedSourceRepository connectedSourceRepository, ProjectRepository projectRepository, GithubService githubService, ExperienceRepository experienceRepository, EducationRepository educationRepository, DerivedClaimRepository derivedClaimRepository, CertificationRepository certificationRepository) {
+        this.userClient = userClient;
         this.connectedSourceRepository = connectedSourceRepository;
         this.projectRepository = projectRepository;
         this.githubService = githubService;
@@ -337,5 +341,26 @@ public class ProfileServiceImpl implements ProfileService{
             throw new BadRequestException("Invalid approval state: " + approvalState);
         }
         return derivedClaimRepository.save(claim);
+    }
+    @Override
+    public DeveloperProfileDTO getDeveloperProfile(Long userId) {
+        // 1. Fetch user details from USER-SERVICE via OpenFeign
+        ApiResponse<UserResponseDTO> response = userClient.getUserById(userId);
+        UserResponseDTO userDetails = response.data();
+
+        // 2. Query local database sections
+        List<Experience> experiences = getExperiences(userId);
+        List<Education> educations = getEducations(userId);
+        List<Certification> certifications = getCertifications(userId);
+        List<DerivedClaim> claims = getDerivedClaims(userId);
+
+        // 3. Combine and return
+        return new DeveloperProfileDTO(
+                userDetails,
+                experiences,
+                educations,
+                certifications,
+                claims
+        );
     }
 }

@@ -51,7 +51,11 @@ public class UserController {
         userService.changePassword(userId, request.oldPassword(), request.newPassword());
         return ResponseEntity.noContent().build();
     }
-
+    // Add inside UserController.java:
+    @GetMapping("/{userId}")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable("userId") Long userId) {
+        return ResponseEntity.ok(userService.getByUserId(userId));
+    }
 
 
 }
