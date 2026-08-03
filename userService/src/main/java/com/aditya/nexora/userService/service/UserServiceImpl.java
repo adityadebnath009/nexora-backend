@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -318,10 +319,23 @@ public class UserServiceImpl implements UserService{
     }
 
     public UserDTO getUserByUsername(String username) {
-        User user = userRepository.findByUsername(username).orElseThrow(() -> new BadRequestException("User not found with username: " + username));
-        return mapToDTO(user);
+        Optional<User> userOptional = userRepository.
+                findByUsername(username.toLowerCase().trim());
+
+       if(userOptional.isEmpty())
+       {
+           List<User> usersByName = userRepository.findByNameContainingIgnoreCase(username.toLowerCase().trim());
+           if(!usersByName.isEmpty())
+           {
+               userOptional = Optional.of(usersByName.get(0));
+           }
+       }
+       User user = userOptional.orElseThrow(() -> new BadRequestException("User not found with username: " + username));
+       return mapToDTO(user);
     }
     public UserDTO getByUserId(Long userId) {
         return mapToDTO(userRepository.findById(userId).orElseThrow(() -> new BadRequestException("User not found with id: " + userId)));
     }
+
+
 }

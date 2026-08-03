@@ -344,17 +344,17 @@ public class ProfileServiceImpl implements ProfileService{
     }
     @Override
     public DeveloperProfileDTO getDeveloperProfile(Long userId) {
-        // 1. Fetch user details from USER-SERVICE via OpenFeign
+
         ApiResponse<UserResponseDTO> response = userClient.getUserById(userId);
         UserResponseDTO userDetails = response.data();
 
-        // 2. Query local database sections
+
         List<Experience> experiences = getExperiences(userId);
         List<Education> educations = getEducations(userId);
         List<Certification> certifications = getCertifications(userId);
         List<DerivedClaim> claims = getDerivedClaims(userId);
 
-        // 3. Combine and return
+
         return new DeveloperProfileDTO(
                 userDetails,
                 experiences,
@@ -363,4 +363,41 @@ public class ProfileServiceImpl implements ProfileService{
                 claims
         );
     }
+
+    @Override
+    public PublicProfileDTO getPublicProfile(String username) {
+        ApiResponse<UserResponseDTO> response = userClient.getUserByUsername(username);
+
+        if(response==null || response.data()==null)
+        {
+            log.error("User not found with username: {}", username);
+            throw new ResourceNotFoundException("User not found with username: " + username);
+        }
+        UserResponseDTO userDetails = response.data();
+        Long userId = userDetails.id();
+
+        List<Experience> experiences = getExperiences(userId);
+        List<Education> educations = getEducations(userId);
+        List<Certification> certifications = getCertifications(userId);
+
+        List<DerivedClaim> allClaims = getDerivedClaims(userId);
+        List<DerivedClaim> approvedClaims = allClaims.stream()
+                .filter(claim -> claim.getApprovalState() == ApprovalState.APPROVED)
+                .toList();
+
+        return new PublicProfileDTO(
+                userDetails.username(),
+                userDetails.name(),
+                userDetails.headLine(),
+                userDetails.about(),
+                userDetails.profilePictureUrl(),
+                experiences,
+                educations,
+                certifications,
+                approvedClaims
+
+        );
+    }
+
+
 }

@@ -1,9 +1,6 @@
 package com.aditya.nexora.profileService.services;
 
-import com.aditya.nexora.profileService.dtos.CertificationRequestDTO;
-import com.aditya.nexora.profileService.dtos.DeveloperProfileDTO;
-import com.aditya.nexora.profileService.dtos.EducationRequestDTO;
-import com.aditya.nexora.profileService.dtos.ExperienceRequestDTO;
+import com.aditya.nexora.profileService.dtos.*;
 import com.aditya.nexora.profileService.entity.*;
 
 import java.util.List;
@@ -38,4 +35,5 @@ public interface ProfileService {
     // Add inside ProfileService.java:
     DeveloperProfileDTO getDeveloperProfile(Long userId);
 
+    PublicProfileDTO getPublicProfile(String username);
 }
