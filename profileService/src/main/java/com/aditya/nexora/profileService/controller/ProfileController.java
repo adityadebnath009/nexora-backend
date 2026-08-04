@@ -83,9 +83,7 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("message", "Experience deleted successfully"));
     }
 
-    // ==========================================
-    // EDUCATION CRUD
-    // ==========================================
+
 
     @GetMapping("/educations")
     public ResponseEntity<List<Education>> getEducations(
@@ -157,9 +155,7 @@ public class ProfileController {
         return ResponseEntity.ok(Map.of("message", "Certification deleted successfully"));
     }
 
-    // ==========================================
-    // AI-VERIFIED SKILLS (DERIVED CLAIMS)
-    // ==========================================
+   
 
     @GetMapping("/claims")
     public ResponseEntity<List<DerivedClaim>> getDerivedClaims(

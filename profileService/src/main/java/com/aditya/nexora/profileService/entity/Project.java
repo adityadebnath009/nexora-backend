@@ -5,8 +5,8 @@ import com.aditya.nexora.profileService.enums.ConfidenceLevel;
 import jakarta.persistence.*;
 import lombok.*;
 
-
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -16,11 +16,11 @@ import java.util.List;
 @Builder
 @Entity
 @Table(
-    name = "projects",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_project_source_repository",
-        columnNames = {"connected_source_id", "provider_repository_id"}
-    )
+        name = "projects",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_project_source_repository",
+                columnNames = {"connected_source_id", "provider_repository_id"}
+        )
 )
 public class Project {
 
@@ -42,7 +42,10 @@ public class Project {
     private String title;
 
     @Column(columnDefinition = "TEXT")
-    private String description; // user-authored
+    private String description; // User-authored description
+
+    @Column(name = "github_description", columnDefinition = "TEXT")
+    private String githubDescription; // Synced description from GitHub
 
     @Column(name = "repo_url", length = 500)
     private String repoUrl;
@@ -54,12 +57,12 @@ public class Project {
     private String statedRole;
 
     @Column(name = "contribution_summary", columnDefinition = "TEXT")
-    private String contributionSummary; // user-authored
+    private String contributionSummary; // User-authored contribution summary
 
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(
-        name = "project_tech_stack",
-        joinColumns = @JoinColumn(name = "project_id")
+            name = "project_tech_stack",
+            joinColumns = @JoinColumn(name = "project_id")
     )
     @Column(name = "technology", nullable = false, length = 100)
     private List<String> techStack;
@@ -87,11 +90,45 @@ public class Project {
     @Column(name = "is_visible", nullable = false)
     private boolean isVisible;
 
+    @Column(name = "is_fork", nullable = false)
+    private boolean isFork;
+
+    @Column(name = "is_archived", nullable = false)
+    private boolean isArchived;
+
+    @Column(name = "default_branch", length = 100)
+    private String defaultBranch;
+
+    @Column(name = "owner_login", length = 150)
+    private String ownerLogin;
+
+    @Column(name = "full_name", length = 250)
+    private String fullName;
+
+    @Column(name = "stars")
+    private Integer stars;
+
+    @Column(name = "forks")
+    private Integer forks;
+
+    @Column(name="repository_visibility", length=50)
+    private String repositoryVisibility;
+
+    @Column(name = "repo_created_at")
+    private LocalDateTime repoCreatedAt;
+
+    @Column(name = "repo_updated_at")
+    private LocalDateTime repoUpdatedAt;
+
+    @Column(name = "pushed_at")
+    private LocalDateTime pushedAt;
+
     @Version
     private Long version;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
+
     @Column(nullable = false)
     private Instant updatedAt;
 
@@ -99,11 +136,15 @@ public class Project {
     protected void onCreate() {
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
+        if (this.analysisStatus == null) {
+            this.analysisStatus = AnalysisStatus.PENDING;
+        }
+        // Force new projects to default to invisible until the developer selects them
+        this.isVisible = false;
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = Instant.now();
     }
-
 }

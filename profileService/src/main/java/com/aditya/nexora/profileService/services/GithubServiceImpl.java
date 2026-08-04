@@ -134,6 +134,7 @@ public class GithubServiceImpl implements GithubService{
             for (Map<String, Object> repo : reposList) {
                 LocalDateTime createdAt = parseIsoDateTime((String) repo.get("created_at"));
                 LocalDateTime updatedAt = parseIsoDateTime((String) repo.get("updated_at"));
+                LocalDateTime pushedAt = parseIsoDateTime((String) repo.get("pushed_at"));
 
                 String visibility = Boolean.TRUE.equals(repo.get("private")) ? "PRIVATE" : "PUBLIC";
 
@@ -141,6 +142,15 @@ public class GithubServiceImpl implements GithubService{
                 if (topics == null) {
                     topics = List.of();
                 }
+
+                Boolean isFork = (Boolean) repo.get("fork");
+                Boolean isArchived = (Boolean) repo.get("archived");
+                String defaultBranch = (String) repo.get("default_branch");
+                Map<String, Object>  owner = (Map<String, Object>) repo.get("owner");
+                String ownerLogin = owner!=null?(String) owner.get("login"):null;
+                String fullName = (String) repo.get("full_name");
+
+
 
                 dtos.add(new RepositoryDTO(
                         getAsLong(repo, "id"),
@@ -153,7 +163,13 @@ public class GithubServiceImpl implements GithubService{
                         createdAt,
                         updatedAt,
                         visibility,
-                        topics
+                        topics,
+                        isFork != null ? isFork : false,
+                        isArchived != null ? isArchived : false,
+                        defaultBranch != null ? defaultBranch : "main",
+                        pushedAt,
+                        ownerLogin,
+                        fullName
                 ));
             }
             return dtos;

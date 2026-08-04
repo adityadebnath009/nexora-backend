@@ -14,5 +14,11 @@ public record RepositoryDTO(
     LocalDateTime createdAt,
     LocalDateTime updatedAt,
     String visibility,
-    List<String> topics
+    List<String> topics,
+    Boolean isFork,
+    Boolean isArchived,
+    String defaultBranch,
+    LocalDateTime pushedAt,
+    String ownerLogin,
+    String fullName
 ) {}

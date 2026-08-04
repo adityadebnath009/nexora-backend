@@ -3,6 +3,7 @@ package com.aditya.nexora.profileService.services;
 import com.aditya.nexora.profileService.client.UserClient;
 import com.aditya.nexora.profileService.dtos.*;
 import com.aditya.nexora.profileService.entity.*;
+import com.aditya.nexora.profileService.enums.AnalysisStatus;
 import com.aditya.nexora.profileService.enums.ApprovalState;
 import com.aditya.nexora.profileService.enums.OwnershipStatus;
 import com.aditya.nexora.profileService.enums.SourceProvider;
@@ -16,9 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -115,53 +114,115 @@ public class ProfileServiceImpl implements ProfileService{
     @Transactional
     @Override
     public void syncGithubRepositories(Long userId) {
+        ConnectedSource connectedSource = connectedSourceRepository.findByUserIdAndProvider(userId, SourceProvider.GITHUB)
+                .orElseThrow(() -> new ResourceNotFoundException("Connected source not found for user id: " + userId));
 
-        ConnectedSource connectedSource = connectedSourceRepository.findByUserIdAndProvider(userId, SourceProvider.GITHUB).orElse(null);
-        if(connectedSource==null)
-        {
-            log.error("Connected source not found for user id: {}", userId);
-            throw new ResourceNotFoundException("Connected source not found for user id: " + userId);
-
-        }
         List<RepositoryDTO> repoList = githubService.fetchRepositories(connectedSource.getAccessToken());
-        List<Project>  currentProjects = projectRepository.findByUserId(userId);
+        List<Project> currentProjects = projectRepository.findByUserId(userId);
 
-        Map<Long, Project> existingProject = currentProjects.stream().
-                collect(java.util.stream.Collectors.
-                        toMap(Project::getProviderRepositoryId, project -> project));
+        Map<Long, Project> existingProjects = currentProjects.stream()
+                .filter(p -> p.getProviderRepositoryId() != null)
+                .collect(java.util.stream.Collectors.toMap(Project::getProviderRepositoryId, p -> p));
 
         List<Project> toSave = new ArrayList<>();
-        for(RepositoryDTO repoDTO: repoList)
-        {
-            Project project = existingProject.get(repoDTO.id());
-            if(project!=null)
-            {
+        Set<Long> syncedRepoIds = new HashSet<>();
+
+        for (RepositoryDTO repoDTO : repoList) {
+            syncedRepoIds.add(repoDTO.id());
+            Project project = existingProjects.get(repoDTO.id());
+
+            if (project != null) {
+                // Update metadata fields without overwriting user-authored fields (liveUrl, statedRole, description, etc.)
                 project.setTitle(repoDTO.name());
                 project.setRepoUrl(repoDTO.htmlUrl());
-                project.setVisible(true);
+                project.setGithubDescription(repoDTO.description());
+                project.setFork(repoDTO.isFork());
+                project.setArchived(repoDTO.isArchived());
+                project.setDefaultBranch(repoDTO.defaultBranch());
+                project.setOwnerLogin(repoDTO.ownerLogin());
+                project.setFullName(repoDTO.fullName());
+                project.setStars(repoDTO.stars());
+                project.setForks(repoDTO.forks());
+                project.setRepoCreatedAt(repoDTO.createdAt());
+                project.setRepoUpdatedAt(repoDTO.updatedAt());
+                project.setPushedAt(repoDTO.pushedAt());
                 project.setUpdatedAt(Instant.now());
+                project.setRepositoryVisibility(repoDTO.visibility());
+
+                // Update techStack by merging new GitHub topics/languages
+                List<String> currentStack = project.getTechStack();
+                List<String> updatedStack = currentStack != null ? new ArrayList<>(currentStack) : new ArrayList<>();
+                if (repoDTO.primaryLanguage() != null && updatedStack.stream().noneMatch(t -> t.equalsIgnoreCase(repoDTO.primaryLanguage()))) {
+                    updatedStack.add(repoDTO.primaryLanguage());
+                }
+                if (repoDTO.topics() != null) {
+                    for (String topic : repoDTO.topics()) {
+                        final String currentTopic = topic;
+                        if (updatedStack.stream().noneMatch(t -> t.equalsIgnoreCase(currentTopic))) {
+                            updatedStack.add(topic);
+                        }
+                    }
+                }
+                project.setTechStack(updatedStack);
 
                 toSave.add(project);
+            } else {
+                List<String> techStack = new ArrayList<>();
+                if (repoDTO.primaryLanguage() != null) {
+                    techStack.add(repoDTO.primaryLanguage());
+                }
+                if (repoDTO.topics() != null) {
+                    for (String topic : repoDTO.topics()) {
+                        final String currentTopic = topic;
+                        if (techStack.stream().noneMatch(t -> t.equalsIgnoreCase(currentTopic))) {
+                            techStack.add(topic);
+                        }
+                    }
+                }
 
-
-            }
-            else
-            {
-                Project newProject = Project.builder().
-                        userId(userId).
-                        connectedSource(connectedSource).
-                        providerRepositoryId(repoDTO.id()).
-                        title(repoDTO.name()).
-                        repoUrl(repoDTO.htmlUrl())
-                        .techStack(repoDTO.primaryLanguage()!=null ? List.of(repoDTO.primaryLanguage()) : List.of())
-                        .isVisible(true)
+                // Insert new projects - by default isVisible is false, and analysisStatus is PENDING
+                Project newProject = Project.builder()
+                        .userId(userId)
+                        .connectedSource(connectedSource)
+                        .providerRepositoryId(repoDTO.id())
+                        .title(repoDTO.name())
+                        .repoUrl(repoDTO.htmlUrl())
+                        .githubDescription(repoDTO.description())
+                        .techStack(techStack)
+                        .isFork(repoDTO.isFork())
+                        .isArchived(repoDTO.isArchived())
+                        .defaultBranch(repoDTO.defaultBranch())
+                        .ownerLogin(repoDTO.ownerLogin())
+                        .fullName(repoDTO.fullName())
+                        .stars(repoDTO.stars())
+                        .forks(repoDTO.forks())
+                        .repoCreatedAt(repoDTO.createdAt())
+                        .repoUpdatedAt(repoDTO.updatedAt())
+                        .pushedAt(repoDTO.pushedAt())
+                        .isVisible(false) // Default to invisible until user chooses to publish
+                        .analysisStatus(AnalysisStatus.PENDING)
+                        .repositoryVisibility(repoDTO.visibility())
                         .build();
 
                 toSave.add(newProject);
             }
-
         }
+
+        // Handle archiving of projects that disappeared from GitHub (meaning they were deleted or renamed)
+        for (Project currentProject : currentProjects) {
+            if (currentProject.getProviderRepositoryId() != null && !syncedRepoIds.contains(currentProject.getProviderRepositoryId())) {
+                currentProject.setArchived(true);
+                currentProject.setVisible(false); // Make invisible if no longer present
+                currentProject.setUpdatedAt(Instant.now());
+                toSave.add(currentProject);
+            }
+        }
+
         projectRepository.saveAll(toSave);
+
+        // Update connected source last sync time
+        connectedSource.setLastSyncTime(Instant.now());
+        connectedSourceRepository.save(connectedSource);
     }
 
     @Transactional
