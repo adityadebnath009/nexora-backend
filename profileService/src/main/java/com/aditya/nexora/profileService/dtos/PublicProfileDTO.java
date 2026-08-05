@@ -9,6 +9,7 @@ public record PublicProfileDTO(
     String headline,
     String about,
     String profilePictureUrl,
+    List<PublicProjectDTO> projects,
     List<PublicExperienceDTO> experiences,
     List<PublicEducationDTO> educations,
     List<PublicCertificationDTO> certifications,

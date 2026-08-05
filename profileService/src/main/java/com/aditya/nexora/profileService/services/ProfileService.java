@@ -2,6 +2,7 @@ package com.aditya.nexora.profileService.services;
 
 import com.aditya.nexora.profileService.dtos.*;
 import com.aditya.nexora.profileService.entity.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -20,6 +21,10 @@ public interface ProfileService {
 
     // Education CRUD
     List<Education> getEducations(Long userId);
+
+    @Transactional
+    List<Project> getProjects(Long userId);
+
     Education addEducation(Long userId, EducationRequestDTO request);
     Education updateEducation(Long userId, Long educationId, EducationRequestDTO request);
     void deleteEducation(Long userId, Long educationId);
@@ -38,4 +43,11 @@ public interface ProfileService {
     DeveloperProfileDTO getDeveloperProfile(Long userId);
 
     PublicProfileDTO getPublicProfile(String username);
+
+
+
+    List<Project> getProjectsByUserId(Long userId);
+    Project updateProjectVisibility(Long userId, Long projectId, boolean isVisible);
+    Project updateProject(Long userId, Long projectId, ProjectUpdateRequestDTO request);
+
 }

@@ -297,6 +297,13 @@ public class ProfileServiceImpl implements ProfileService{
         List<Education> educationList = educationRepository.findByUserIdOrderByStartDateDesc(userId);
         return educationList;
     }
+    @Transactional
+    @Override
+    public List<Project> getProjects(Long userId)
+    {
+        List<Project> projectList = projectRepository.findByUserId(userId);
+        return projectList;
+    }
 
 
     @Transactional
@@ -469,6 +476,7 @@ public class ProfileServiceImpl implements ProfileService{
         UserResponseDTO userDetails = response.data();
         Long userId = userDetails.id();
 
+        List<Project> projects = getProjectsByUserId(userId);
         List<Experience> experiences = getExperiences(userId);
         List<Education> educations = getEducations(userId);
         List<Certification> certifications = getCertifications(userId);
@@ -517,12 +525,32 @@ public class ProfileServiceImpl implements ProfileService{
                 ))
                 .toList();
 
+        List<PublicProjectDTO> publicProjects = projects.stream()
+                .filter(project -> project.isVisible()==true && project.getRepositoryVisibility().equals("PUBLIC"))
+                .map(project -> new PublicProjectDTO(
+                        project.getTitle(),
+                        project.getDescription()==null?project.getGithubDescription():project.getDescription(),
+                        project.getRepoUrl(),
+                        project.getLiveUrl(),
+                        project.getTechStack(),
+                        project.getStatedRole(),
+                        project.getContributionSummary(),
+                        project.getAiSummary(),
+                        project.getArchitectureSummary(),
+                        "",
+                        project.getUpdatedAt()
+
+
+                )).toList();
+
+
         return new PublicProfileDTO(
                 userDetails.username(),
                 userDetails.name(),
                 userDetails.headLine(),
                 userDetails.about(),
                 userDetails.profilePictureUrl(),
+                publicProjects,
                 publicExperiences,
                 publicEducations,
                 publicCertifications,
@@ -530,7 +558,52 @@ public class ProfileServiceImpl implements ProfileService{
         );
     }
 
+    @Override
+    public List<Project> getProjectsByUserId(Long userId) {
+        return projectRepository.findByUserId(userId);
+    }
 
+
+    @Transactional
+    @Override
+    public Project updateProjectVisibility(Long userId, Long projectId, boolean isVisible) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found for id: " + projectId));
+        if (!project.getUserId().equals(userId)) {
+            log.error("User is not authorized to update project visibility for id: {}", projectId);
+            throw new ForbiddenException("You are not authorized to update this project");
+        }
+        if(isVisible==true && project.getRepositoryVisibility().equals("PRIVATE"))
+        {
+            throw new BadRequestException("Private projects cannot be published publicly.");
+        }
+        project.setVisible(isVisible);
+        return projectRepository.save(project);
+
+    }
+
+
+    @Transactional
+    @Override
+    public Project updateProject(Long userId, Long projectId, ProjectUpdateRequestDTO request) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found for id: " + projectId));
+
+        if(!project.getUserId().equals(userId))
+        {
+            log.error("User is not authorized to update project for id: {}", projectId);
+            throw new ForbiddenException("You are not authorized to update this project");
+        }
+
+        project.setTitle(request.title());
+        project.setDescription(request.description());
+        project.setStatedRole(request.statedRole());
+        project.setContributionSummary(request.contributionSummary());
+        project.setLiveUrl(request.liveUrl());
+        project.setUpdatedAt(Instant.now());
+
+        return projectRepository.save(project);
+    }
 
 
 }

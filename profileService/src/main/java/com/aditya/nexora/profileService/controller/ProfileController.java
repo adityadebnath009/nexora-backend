@@ -181,4 +181,35 @@ public class ProfileController {
         Long userId = jwt.getClaim("userId");
         return ResponseEntity.ok(profileService.getDeveloperProfile(userId));
     }
+
+
+    @GetMapping("/profile/projects")
+    public ResponseEntity<List<Project>> getProjects(@AuthenticationPrincipal Jwt jwt) {
+        Long userId = jwt.getClaim("userId");
+        return ResponseEntity.ok().body(profileService.getProjectsByUserId(userId));
+
+    }
+
+    @PutMapping("/profile/projects/{projectId}/visibility")
+    public ResponseEntity<Project> updateProjectVisibility(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long projectId,
+            @RequestBody @Valid ProjectVisibilityRequestDTO request) {
+
+        Project project = profileService.updateProjectVisibility(jwt.getClaim("userId"), projectId, request.isVisibility());
+
+        return ResponseEntity.ok(project);
+    }
+
+    @PutMapping("/profile/projects/{projectId}")
+    public ResponseEntity<Project> updateProject(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long projectId,
+            @RequestBody @Valid ProjectUpdateRequestDTO request) {
+
+        Project project = profileService.updateProject(jwt.getClaim("userId"), projectId, request);
+
+        return ResponseEntity.ok(project);
+    }
+
 }
