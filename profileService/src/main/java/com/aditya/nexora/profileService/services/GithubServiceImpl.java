@@ -1,6 +1,7 @@
 package com.aditya.nexora.profileService.services;
 
 import com.aditya.nexora.profileService.dtos.GitHubProfileDTO;
+import com.aditya.nexora.profileService.dtos.GitHubTreeItemDTO;
 import com.aditya.nexora.profileService.dtos.RepositoryDTO;
 import com.aditya.nexora.profileService.exception.BadRequestException;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.web.client.RestClient;
 
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -113,65 +115,79 @@ public class GithubServiceImpl implements GithubService{
     }
 
     @Override
-
     public List<RepositoryDTO> fetchRepositories(String accessToken) {
-        String url = "https://api.github.com/user/repos?per_page=100&type=owner";
+
 
         try {
-            List<Map<String, Object>> reposList = restClient.get()
-                    .uri(url)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-                    .header(HttpHeaders.USER_AGENT, "Nexora")
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
-            if (reposList == null) {
-                return List.of();
-            }
 
-            List<RepositoryDTO> dtos = new java.util.ArrayList<>();
-            for (Map<String, Object> repo : reposList) {
-                LocalDateTime createdAt = parseIsoDateTime((String) repo.get("created_at"));
-                LocalDateTime updatedAt = parseIsoDateTime((String) repo.get("updated_at"));
-                LocalDateTime pushedAt = parseIsoDateTime((String) repo.get("pushed_at"));
+            List<RepositoryDTO> dtos = new ArrayList<>();
+            int page = 1;
+            boolean hasMore = true;
+            while (hasMore) {
+                String paginatedUrl = "https://api.github.com/user/repos?per_page=100&type=owner&page=" +page;
+                List<Map<String, Object>> reposList = restClient.get()
+                        .uri(paginatedUrl)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                        .header(HttpHeaders.USER_AGENT, "Nexora")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
-                String visibility = Boolean.TRUE.equals(repo.get("private")) ? "PRIVATE" : "PUBLIC";
+                if (reposList == null) {
+                    return List.of();
+                }
+                for (Map<String, Object> repo : reposList) {
+                    LocalDateTime createdAt = parseIsoDateTime((String) repo.get("created_at"));
+                    LocalDateTime updatedAt = parseIsoDateTime((String) repo.get("updated_at"));
+                    LocalDateTime pushedAt = parseIsoDateTime((String) repo.get("pushed_at"));
 
-                List<String> topics = (List<String>) repo.get("topics");
-                if (topics == null) {
-                    topics = List.of();
+                    String visibility = Boolean.TRUE.equals(repo.get("private")) ? "PRIVATE" : "PUBLIC";
+
+                    List<String> topics = (List<String>) repo.get("topics");
+                    if (topics == null) {
+                        topics = List.of();
+                    }
+
+                    Boolean isFork = (Boolean) repo.get("fork");
+                    Boolean isArchived = (Boolean) repo.get("archived");
+                    String defaultBranch = (String) repo.get("default_branch");
+                    Map<String, Object>  owner = (Map<String, Object>) repo.get("owner");
+                    String ownerLogin = owner!=null?(String) owner.get("login"):null;
+                    String fullName = (String) repo.get("full_name");
+
+
+
+                    dtos.add(new RepositoryDTO(
+                            getAsLong(repo, "id"),
+                            (String) repo.get("name"),
+                            (String) repo.get("description"),
+                            (String) repo.get("html_url"),
+                            getAsInteger(repo, "stargazers_count"),
+                            getAsInteger(repo, "forks_count"),
+                            (String) repo.get("language"),
+                            createdAt,
+                            updatedAt,
+                            visibility,
+                            topics,
+                            isFork != null ? isFork : false,
+                            isArchived != null ? isArchived : false,
+                            defaultBranch != null ? defaultBranch : "main",
+                            pushedAt,
+                            ownerLogin,
+                            fullName
+                    ));
                 }
 
-                Boolean isFork = (Boolean) repo.get("fork");
-                Boolean isArchived = (Boolean) repo.get("archived");
-                String defaultBranch = (String) repo.get("default_branch");
-                Map<String, Object>  owner = (Map<String, Object>) repo.get("owner");
-                String ownerLogin = owner!=null?(String) owner.get("login"):null;
-                String fullName = (String) repo.get("full_name");
+                if(reposList.size() < 100)
+                {
+                    hasMore = false;
+                }
+                page++;
 
-
-
-                dtos.add(new RepositoryDTO(
-                        getAsLong(repo, "id"),
-                        (String) repo.get("name"),
-                        (String) repo.get("description"),
-                        (String) repo.get("html_url"),
-                        getAsInteger(repo, "stargazers_count"),
-                        getAsInteger(repo, "forks_count"),
-                        (String) repo.get("language"),
-                        createdAt,
-                        updatedAt,
-                        visibility,
-                        topics,
-                        isFork != null ? isFork : false,
-                        isArchived != null ? isArchived : false,
-                        defaultBranch != null ? defaultBranch : "main",
-                        pushedAt,
-                        ownerLogin,
-                        fullName
-                ));
             }
+
+
             return dtos;
         }
         catch (HttpClientErrorException e) {
@@ -233,6 +249,81 @@ public class GithubServiceImpl implements GithubService{
         }
 
     }
+
+    @Override
+    public List<GitHubTreeItemDTO> fetchRepositoryTree(String owner, String repo, String branch, String accessToken) {
+        String url = "https://api.github.com/repos/"+owner+"/"+repo+"/git/trees/"+branch+"?recursive=1";
+        try{
+            Map<String, Object> response = restClient.get()
+                    .uri(url)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .header(HttpHeaders.USER_AGENT, "Nexora")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(Map.class);
+
+            List<Map<String, Object>> tree = (List<Map<String, Object>>) response.get("tree");
+
+            if(tree==null)
+            {
+                log.warn("Repository tree not found for repo: {}/{}", owner, repo);
+                return List.of();
+            }
+            List<GitHubTreeItemDTO> gitHubTreeItemDTOS = new ArrayList<>();
+
+            for(Map<String, Object> item:tree)
+            {
+                gitHubTreeItemDTOS.add(new GitHubTreeItemDTO(
+                        (String) item.get("path"),
+                        (String)item.get("type"),
+                        item.get("size")!=null?getAsLong(item,"size"):0L,
+                        (String)item.get("sha"),
+                        (String)item.get("url")
+                ));
+
+            }
+
+            log.info("Repository tree has been fetched successfully for repo: {}/{}", owner, repo);
+            return gitHubTreeItemDTOS;
+        }
+        catch (HttpClientErrorException e){
+            log.error("Error while fetching repository tree", e);
+            throw new BadRequestException("No repository tree found for this repository: "+ e.getMessage());
+        }
+
+    }
+
+    @Override
+    public String fetchFileContent(String owner, String repo, String sha, String accessToken) {
+
+        String url = "https://api.github.com/repos/"+owner+"/"+repo+"/git/blobs/"+sha;
+        try
+        {
+            String response = restClient.get()
+                    .uri(url)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .header(HttpHeaders.USER_AGENT, "Nexora")
+                    .accept(MediaType.valueOf("application/vnd.github.v3.raw"))
+                    .retrieve()
+                    .body(String.class);
+
+            return response;
+
+        }
+        catch (HttpClientErrorException.NotFound e) {
+            log.warn("File content not found for repo: {}/{}", owner, repo);
+            return null;
+        }
+        catch (HttpClientErrorException e){
+            log.error("Error while fetching file content", e);
+            throw new BadRequestException("No file content found for this repository: "+ e.getMessage());
+        }
+
+    }
+
+
+
+
 
 
     private Integer getAsInteger(Map<String, Object> map, String key) {

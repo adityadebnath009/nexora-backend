@@ -1,6 +1,7 @@
 package com.aditya.nexora.profileService.services;
 
 import com.aditya.nexora.profileService.dtos.GitHubProfileDTO;
+import com.aditya.nexora.profileService.dtos.GitHubTreeItemDTO;
 import com.aditya.nexora.profileService.dtos.RepositoryDTO;
 
 import java.util.List;
@@ -16,4 +17,9 @@ public interface GithubService {
 
     // Add to GithubService.java
     Map<String, Long> fetchLanguages(String owner, String repo, String accessToken);
+
+    List<GitHubTreeItemDTO> fetchRepositoryTree(String owner, String repo, String branch, String accessToken);
+
+    String fetchFileContent(String owner, String repo, String sha, String accessToken);
+
 }
