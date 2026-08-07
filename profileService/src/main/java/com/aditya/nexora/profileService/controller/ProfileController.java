@@ -4,6 +4,7 @@ import com.aditya.nexora.profileService.dtos.*;
 import com.aditya.nexora.profileService.entity.*;
 import com.aditya.nexora.profileService.services.ProfileService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -183,14 +184,14 @@ public class ProfileController {
     }
 
 
-    @GetMapping("/profile/projects")
+    @GetMapping("/projects")
     public ResponseEntity<List<Project>> getProjects(@AuthenticationPrincipal Jwt jwt) {
         Long userId = jwt.getClaim("userId");
         return ResponseEntity.ok().body(profileService.getProjectsByUserId(userId));
 
     }
 
-    @PutMapping("/profile/projects/{projectId}/visibility")
+    @PutMapping("/projects/{projectId}/visibility")
     public ResponseEntity<Project> updateProjectVisibility(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long projectId,
@@ -201,7 +202,7 @@ public class ProfileController {
         return ResponseEntity.ok(project);
     }
 
-    @PutMapping("/profile/projects/{projectId}")
+    @PutMapping("/projects/{projectId}")
     public ResponseEntity<Project> updateProject(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long projectId,
@@ -210,6 +211,14 @@ public class ProfileController {
         Project project = profileService.updateProject(jwt.getClaim("userId"), projectId, request);
 
         return ResponseEntity.ok(project);
+    }
+
+    @PostMapping("/projects/{projectId}/analyze")
+    public ResponseEntity<Map<String, String>> queueProjectAnalysis(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long projectId) {
+        profileService.queueProjectAnalysis(jwt.getClaim("userId"), projectId);
+        return ResponseEntity.status(HttpStatusCode.valueOf(200)).body(Map.of("message", "Project analysis has been queued Successfully!!"));
     }
 
 }

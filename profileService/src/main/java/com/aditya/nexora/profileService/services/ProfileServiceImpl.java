@@ -31,8 +31,11 @@ public class ProfileServiceImpl implements ProfileService{
     private final EducationRepository educationRepository;
     private final DerivedClaimRepository derivedClaimRepository;
     private final CertificationRepository certificationRepository;
+    private final AIAnalysisService aiAnalysisService;
 
-    public ProfileServiceImpl(UserClient userClient, ConnectedSourceRepository connectedSourceRepository, ProjectRepository projectRepository, GithubService githubService, ExperienceRepository experienceRepository, EducationRepository educationRepository, DerivedClaimRepository derivedClaimRepository, CertificationRepository certificationRepository) {
+
+
+    public ProfileServiceImpl(UserClient userClient, ConnectedSourceRepository connectedSourceRepository, ProjectRepository projectRepository, GithubService githubService, ExperienceRepository experienceRepository, EducationRepository educationRepository, DerivedClaimRepository derivedClaimRepository, CertificationRepository certificationRepository, AIAnalysisService aiAnalysisService) {
         this.userClient = userClient;
         this.connectedSourceRepository = connectedSourceRepository;
         this.projectRepository = projectRepository;
@@ -41,6 +44,7 @@ public class ProfileServiceImpl implements ProfileService{
         this.educationRepository = educationRepository;
         this.derivedClaimRepository = derivedClaimRepository;
         this.certificationRepository = certificationRepository;
+        this.aiAnalysisService = aiAnalysisService;
     }
 
 
@@ -604,6 +608,33 @@ public class ProfileServiceImpl implements ProfileService{
 
         return projectRepository.save(project);
     }
+
+
+    @Transactional
+    @Override
+    public void queueProjectAnalysis(Long userId, Long projectId) {
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found for id: " + projectId));
+
+
+        if(!project.getUserId().equals(userId))
+        {
+            log.error("User is not authorized to analyze project for id: {}", projectId);
+            throw new ForbiddenException("You are not authorized to analyze this project");
+        }
+        ConnectedSource connectedSource = connectedSourceRepository
+                .findByUserIdAndProvider(userId, SourceProvider.GITHUB)
+                .orElseThrow(() -> new ResourceNotFoundException("GitHub connected source not found for user id: " + userId));
+
+        project.setAnalysisStatus(AnalysisStatus.PENDING);
+        projectRepository.save(project);
+
+        aiAnalysisService.analyzeProjectAsync(projectId, connectedSource.getAccessToken());
+
+
+    }
+
 
 
 }

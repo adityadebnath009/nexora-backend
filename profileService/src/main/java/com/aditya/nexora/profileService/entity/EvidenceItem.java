@@ -52,6 +52,9 @@ public class EvidenceItem {
     @Column(nullable = false)
     private Visibility visibility;
 
+    @ManyToMany(mappedBy = "evidenceItems", fetch = FetchType.LAZY)
+    private List<DerivedClaim> claims;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
     @Column(nullable = false)

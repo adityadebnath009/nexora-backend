@@ -50,4 +50,5 @@ public interface ProfileService {
     Project updateProjectVisibility(Long userId, Long projectId, boolean isVisible);
     Project updateProject(Long userId, Long projectId, ProjectUpdateRequestDTO request);
 
+    void queueProjectAnalysis(Long userId, Long projectId);
 }

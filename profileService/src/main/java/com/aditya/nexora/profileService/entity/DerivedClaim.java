@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.List;
 
 @Getter
 @Setter
@@ -43,6 +44,13 @@ public class DerivedClaim {
     @Column(nullable = false, name="approval_state")
     private ApprovalState approvalState;
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "claim_evidence",
+            joinColumns = @JoinColumn(name = "claim_id"),
+            inverseJoinColumns = @JoinColumn(name = "evidence_id")
+    )
+    private List<EvidenceItem> evidenceItems;
 
     private Instant createdAt;
     private Instant updatedAt;
