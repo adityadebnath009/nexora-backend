@@ -1,5 +1,6 @@
 package com.aditya.nexora.profileService.services;
 
+import com.aditya.nexora.profileService.dtos.GitHubCommitDTO;
 import com.aditya.nexora.profileService.dtos.GitHubProfileDTO;
 import com.aditya.nexora.profileService.dtos.GitHubTreeItemDTO;
 import com.aditya.nexora.profileService.dtos.RepositoryDTO;
@@ -21,5 +22,7 @@ public interface GithubService {
     List<GitHubTreeItemDTO> fetchRepositoryTree(String owner, String repo, String branch, String accessToken);
 
     String fetchFileContent(String owner, String repo, String sha, String accessToken);
+
+    List<GitHubCommitDTO> fetchCommits(String owner, String repo, String accessToken);
 
 }

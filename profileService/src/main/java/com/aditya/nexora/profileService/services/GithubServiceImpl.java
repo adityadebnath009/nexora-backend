@@ -1,5 +1,6 @@
 package com.aditya.nexora.profileService.services;
 
+import com.aditya.nexora.profileService.dtos.GitHubCommitDTO;
 import com.aditya.nexora.profileService.dtos.GitHubProfileDTO;
 import com.aditya.nexora.profileService.dtos.GitHubTreeItemDTO;
 import com.aditya.nexora.profileService.dtos.RepositoryDTO;
@@ -320,10 +321,57 @@ public class GithubServiceImpl implements GithubService{
         }
 
     }
+    @Override
+    public List<GitHubCommitDTO> fetchCommits(String owner, String repo, String accessToken) {
+        String url = "https://api.github.com/repos/" + owner + "/" + repo + "/commits?per_page=30";
+        try {
+            List<Map<String, Object>> response = restClient.get()
+                    .uri(url)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                    .header(HttpHeaders.USER_AGENT, "Nexora")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
 
+            if (response == null) {
+                return List.of();
+            }
 
+            List<GitHubCommitDTO> commits = new ArrayList<>();
+            for (Map<String, Object> item : response) {
+                String sha = (String) item.get("sha");
+                Map<String, Object> commitMap = (Map<String, Object>) item.get("commit");
 
+                String message = "";
+                String authorName = "";
+                LocalDateTime date = null;
 
+                if (commitMap != null) {
+                    message = (String) commitMap.get("message");
+                    Map<String, Object> authorMap = (Map<String, Object>) commitMap.get("author");
+                    if (authorMap != null) {
+                        authorName = (String) authorMap.get("name");
+                        date = parseIsoDateTime((String) authorMap.get("date"));
+                    }
+                }
+
+                Map<String, Object> githubAuthorMap = (Map<String, Object>) item.get("author");
+                String authorLogin = null;
+                if (githubAuthorMap != null) {
+                    authorLogin = (String) githubAuthorMap.get("login");
+                }
+
+                commits.add(new GitHubCommitDTO(sha, message, authorName, authorLogin, date));
+            }
+
+            log.info("Successfully fetched {} commits for repository {}/{}", commits.size(), owner, repo);
+            return commits;
+
+        } catch (HttpClientErrorException e) {
+            log.error("Error while fetching commits for repo {}/{}", owner, repo, e);
+            throw new BadRequestException("GitHub Commits fetch failed: " + e.getMessage());
+        }
+    }
 
 
     private Integer getAsInteger(Map<String, Object> map, String key) {
