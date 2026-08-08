@@ -14,6 +14,9 @@ import com.aditya.nexora.profileService.enums.ClaimType;
 import com.aditya.nexora.profileService.enums.ConfidenceLevel;
 import com.aditya.nexora.profileService.enums.EvidenceType;
 import com.aditya.nexora.profileService.exception.ResourceNotFoundException;
+import com.aditya.nexora.profileService.entity.ConnectedSource;
+import com.aditya.nexora.profileService.enums.SourceProvider;
+import com.aditya.nexora.profileService.repository.ConnectedSourceRepository;
 import com.aditya.nexora.profileService.repository.DerivedClaimRepository;
 import com.aditya.nexora.profileService.repository.EvidenceItemRepository;
 import com.aditya.nexora.profileService.repository.ProjectRepository;
@@ -46,17 +49,20 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
     private final ProjectRepository projectRepository;
     private final EvidenceItemRepository evidenceItemRepository;
     private final DerivedClaimRepository derivedClaimRepository;
+    private final ConnectedSourceRepository connectedSourceRepository;
     private final ChatClient chatClient;
 
     public AIAnalysisServiceImpl(GithubService githubService,
                                  ProjectRepository projectRepository,
                                  EvidenceItemRepository evidenceItemRepository,
                                  DerivedClaimRepository derivedClaimRepository,
+                                 ConnectedSourceRepository connectedSourceRepository,
                                  ChatClient.Builder chatClientBuilder) {
         this.githubService = githubService;
         this.projectRepository = projectRepository;
         this.evidenceItemRepository = evidenceItemRepository;
         this.derivedClaimRepository = derivedClaimRepository;
+        this.connectedSourceRepository = connectedSourceRepository;
         this.chatClient = chatClientBuilder.build();
     }
     private boolean isTargetFile(String path) {
@@ -223,18 +229,19 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
 
     private boolean isSecretKey(String key) {
         String lower = key.toLowerCase();
-        return lower.contains("pass")
+        return lower.contains("pass") // Catches password, pass, passphrase
                 || lower.contains("secret")
-                || lower.contains("key")
-                || lower.contains("token")
+                || lower.contains("key") // Catches apiKey, client-key
+                || lower.contains("token") // Catches access-token, oauth-token
                 || lower.contains("credential")
                 || lower.contains("private")
-                || lower.contains("pwd")
-                || lower.contains("salt")
-                || lower.contains("cert")
-                || lower.contains("sign");
+                || lower.contains("pwd") // Catches db.pwd
+                || lower.contains("salt") // Catches hash salts
+                || lower.contains("cert") // Catches certificates
+                || lower.contains("sign"); // Catches signature secrets
     }
-    private String buildGeminiPrompt(Project project, List<String> treePaths, Map<String, String> fileContents, List<GitHubCommitDTO> commits, List<GitHubPullRequestDTO> pulls) {
+
+    private String buildGeminiPrompt(Project project, List<String> treePaths, Map<String, String> fileContents, List<GitHubCommitDTO> commits, List<GitHubPullRequestDTO> pulls, String candidateLogin) {
         // 1. Gather tree metadata
         int totalFiles = treePaths.size();
         long testFilesCount = treePaths.stream()
@@ -247,35 +254,62 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
                 .filter(path -> path.contains(".github/workflows/"))
                 .toList();
 
-        // 2. Parse dependencies
-        List<String> allDeps = new ArrayList<>();
+        // 2. Parse dependencies ONLY for pom.xml and package.json to save tokens
+        List<String> extractedDeps = new ArrayList<>();
+        // 3. Keep sanitized raw contents for other configuration files (Dockerfile, requirements.txt, go.mod, etc.)
+        StringBuilder rawConfigContents = new StringBuilder();
+
         fileContents.forEach((fileName, content) -> {
-            if (fileName.toLowerCase().contains("pom.xml") || fileName.toLowerCase().contains("package.json") || fileName.toLowerCase().contains("go.mod") || fileName.toLowerCase().contains("requirements.txt")) {
-                allDeps.addAll(extractDependencies(fileName, content));
+            String lowerName = fileName.toLowerCase();
+            if (lowerName.endsWith("pom.xml") || lowerName.endsWith("package.json")) {
+                extractedDeps.addAll(extractDependencies(fileName, content));
+            } else {
+                // Sanitized pass-through
+                Map<String, String> cleaned = cleanConfiguration(fileName, content);
+                rawConfigContents.append("File: ").append(fileName).append("\nContent:\n");
+                if (cleaned.isEmpty()) {
+                    // For non-properties files, sanitize line-by-line
+                    for (String line : content.split("\n")) {
+                        String trimmed = line.trim();
+                        if (isSecretKey(trimmed)) {
+                            rawConfigContents.append("[REDACTED_SECRET]\n");
+                        } else {
+                            rawConfigContents.append(line).append("\n");
+                        }
+                    }
+                } else {
+                    // For properties/yaml files
+                    cleaned.forEach((k, v) -> rawConfigContents.append(k).append("=").append(v).append("\n"));
+                }
+                rawConfigContents.append("---\n");
             }
         });
 
-        // 3. Configuration summary
-        Map<String, String> safeConfigs = new HashMap<>();
-        fileContents.forEach((fileName, content) -> {
-            if (fileName.toLowerCase().contains("properties") || fileName.toLowerCase().contains("yml") || fileName.toLowerCase().contains("yaml")) {
-                safeConfigs.putAll(cleanConfiguration(fileName, content));
+        // 4. Git statistics computed against the CANDIDATE (not repo owner)
+        int totalCommits = commits != null ? commits.size() : 0;
+        long candidateCommits = 0;
+        String earliestCommit = "N/A";
+        String latestCommit = "N/A";
+        long contributionDays = 0;
+
+        if (commits != null && !commits.isEmpty() && candidateLogin != null) {
+            String candidate = candidateLogin.trim();
+            List<GitHubCommitDTO> candidateList = commits.stream()
+                    .filter(c -> c.authorLogin() != null && c.authorLogin().equalsIgnoreCase(candidate))
+                    .sorted(Comparator.comparing(GitHubCommitDTO::date))
+                    .toList();
+            
+            candidateCommits = candidateList.size();
+            if (!candidateList.isEmpty()) {
+                earliestCommit = candidateList.get(0).date().toLocalDate().toString();
+                latestCommit = candidateList.get(candidateList.size() - 1).date().toLocalDate().toString();
+                contributionDays = java.time.temporal.ChronoUnit.DAYS.between(
+                        candidateList.get(0).date(), 
+                        candidateList.get(candidateList.size() - 1).date()
+                ) + 1;
             }
-        });
-
-        StringBuilder configSummary = new StringBuilder();
-        safeConfigs.forEach((k, v) -> configSummary.append("- ").append(k).append(": ").append(v).append("\n"));
-
-        // 4. Git statistics
-        int totalCommitsAnalyzed = commits != null ? commits.size() : 0;
-        long commitsByOwner = 0;
-        if (commits != null && project.getOwnerLogin() != null) {
-            String owner = project.getOwnerLogin().trim();
-            commitsByOwner = commits.stream()
-                    .filter(c -> c.authorLogin() != null && c.authorLogin().equalsIgnoreCase(owner))
-                    .count();
         }
-        
+
         StringBuilder recentCommitsText = new StringBuilder();
         if (commits != null) {
             commits.stream().limit(15).forEach(c -> 
@@ -284,12 +318,18 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
             );
         }
 
-        int totalPullsAnalyzed = pulls != null ? pulls.size() : 0;
-        long pullsByOwner = 0;
-        if (pulls != null && project.getOwnerLogin() != null) {
-            String owner = project.getOwnerLogin().trim();
-            pullsByOwner = pulls.stream()
-                    .filter(p -> p.authorLogin() != null && p.authorLogin().equalsIgnoreCase(owner))
+        int totalPulls = pulls != null ? pulls.size() : 0;
+        long candidatePulls = 0;
+        long candidateMergedPulls = 0;
+
+        if (pulls != null && !pulls.isEmpty() && candidateLogin != null) {
+            String candidate = candidateLogin.trim();
+            candidatePulls = pulls.stream()
+                    .filter(p -> p.authorLogin() != null && p.authorLogin().equalsIgnoreCase(candidate))
+                    .count();
+            
+            candidateMergedPulls = pulls.stream()
+                    .filter(p -> p.authorLogin() != null && p.authorLogin().equalsIgnoreCase(candidate) && p.mergedAt() != null)
                     .count();
         }
 
@@ -303,11 +343,11 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
 
         // 5. Construct Dossier Prompt
         return "You are an expert technical resume and codebase analyzer.\n"
-                + "Analyze the following project engineering dossier (facts, metadata, dependency lists, and commit summaries) to extract a technical summary, architecture breakdown, skill claims, and evidence items.\n\n"
+                + "Analyze the following project engineering dossier (facts, metadata, dependency lists, raw configuration files, and commit summaries) to extract a technical summary, architecture breakdown, skill claims, and evidence items.\n\n"
                 + "=== PROJECT DOSSIER ===\n"
                 + "Project Name: " + project.getTitle() + "\n"
                 + "Metadata:\n"
-                + "- Owner: " + project.getOwnerLogin() + "\n"
+                + "- Owner/Org: " + project.getOwnerLogin() + "\n"
                 + "- Repository: " + project.getFullName() + "\n"
                 + "- Default Branch: " + (project.getDefaultBranch() != null ? project.getDefaultBranch() : "main") + "\n"
                 + "- Stars: " + (project.getStars() != null ? project.getStars() : 0) + ", Forks: " + (project.getForks() != null ? project.getForks() : 0) + "\n\n"
@@ -315,22 +355,23 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
                 + "- Total Repository Files: " + totalFiles + "\n"
                 + "- Test Files Found: " + testFilesCount + "\n"
                 + "- CI/CD Pipelines: " + (workflows.isEmpty() ? "None" : String.join(", ", workflows)) + "\n\n"
-                + "Extracted Dependencies:\n"
-                + (allDeps.isEmpty() ? "- None found\n" : String.join("\n- ", allDeps.stream().distinct().limit(30).toList())) + "\n\n"
-                + "Extracted Safe Configurations:\n"
-                + (configSummary.length() == 0 ? "- None\n" : configSummary.toString()) + "\n"
-                + "Git Contribution Statistics:\n"
-                + "- Total Commits Checked: " + totalCommitsAnalyzed + "\n"
-                + "- Commits Authored By Owner: " + commitsByOwner + " (" + (totalCommitsAnalyzed > 0 ? (commitsByOwner * 100 / totalCommitsAnalyzed) : 0) + "% ownership)\n"
-                + "- Total Pull Requests Checked: " + totalPullsAnalyzed + "\n"
-                + "- Pull Requests Opened By Owner: " + pullsByOwner + "\n\n"
+                + "Extracted Big Manifest Dependencies (Java/npm):\n"
+                + (extractedDeps.isEmpty() ? "- None\n" : String.join("\n- ", extractedDeps.stream().distinct().limit(35).toList())) + "\n\n"
+                + "=== SANITIZED CONFIGURATION & STACK FILES ===\n"
+                + (rawConfigContents.length() == 0 ? "- None\n" : rawConfigContents.toString()) + "\n"
+                + "Git Contribution Statistics (Evaluated for Candidate: " + candidateLogin + "):\n"
+                + "- Total Commits Evaluated: " + totalCommits + "\n"
+                + "- Commits Authored By Candidate: " + candidateCommits + " (" + (totalCommits > 0 ? (candidateCommits * 100 / totalCommits) : 0) + "% ownership)\n"
+                + "- Candidate Active Contribution Period: " + earliestCommit + " to " + latestCommit + " (" + contributionDays + " days)\n"
+                + "- Total Pull Requests Evaluated: " + totalPulls + "\n"
+                + "- Pull Requests Opened By Candidate: " + candidatePulls + " (" + candidateMergedPulls + " successfully merged)\n\n"
                 + "Recent Commit Messages:\n" + recentCommitsText.toString() + "\n"
                 + "Recent Pull Requests:\n" + recentPullsText.toString() + "\n"
                 + "=== INSTRUCTIONS ===\n"
                 + "1. Generate a 2-3 sentence 'aiSummary' of the project.\n"
                 + "2. Generate an 'architectureSummary' describing structural patterns (e.g. Layered, Microservices, MVC) and main database/authentication mechanisms.\n"
-                + "3. Determine the 'confidenceLevel' (HIGH, MEDIUM, LOW) based on code ownership statistics. If owner commits are extremely low (<20%) or the history is just one initial import, default to LOW.\n"
-                + "4. Extract 'claims' (languages, frameworks, databases, infrastructure). Assign a confidence score (0-100) and specify which paths (like configuration files, test paths) support it.\n"
+                + "3. Determine the 'confidenceLevel' (HIGH, MEDIUM, LOW) based on candidate code ownership statistics. If candidate commits are extremely low (<20%) or the history is just one initial import not authored by them, set to LOW.\n"
+                + "4. Extract 'claims' (languages, frameworks, databases, infrastructure). Assign a confidence score (0-100) and specify which paths support it.\n"
                 + "5. Extract 'evidenceItems' showing specific file paths as proof (e.g. pom.xml as dependency file, build.yml as CI workflow, README.md as readme).\n\n"
                 + "Respond ONLY with a valid JSON matching this schema:\n"
                 + "{\n"
@@ -347,7 +388,7 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
     }
 
     @Transactional
-    protected void saveAnalysisResults(Project project, GeminiAnalysisResponseDTO analysis) {
+    protected void saveAnalysisResults(Project project, GeminiAnalysisResponseDTO analysis, Set<String> actualPaths) {
         // 1. Update Project Summaries and Status
         project.setAiSummary(analysis.aiSummary());
         project.setArchitectureSummary(analysis.architectureSummary());
@@ -370,10 +411,17 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
         evidenceItemRepository.flush();
         derivedClaimRepository.flush();
 
-        // 3. Save new evidence items
+        // 3. Save new evidence items (Section 8 Validation)
         Map<String, EvidenceItem> savedEvidenceMap = new HashMap<>();
         if (analysis.evidenceItems() != null) {
             for (GeminiEvidenceDTO evDto : analysis.evidenceItems()) {
+                // Section 8 Ground Truth Check: Ensure path exists in GitHub file tree
+                if (evDto.sourcePath() == null || !actualPaths.contains(evDto.sourcePath())) {
+                    log.warn("Gemini returned invalid/hallucinated path: {} for project: {}. Skipping.", 
+                            evDto.sourcePath(), project.getTitle());
+                    continue;
+                }
+
                 EvidenceItem evidence = new EvidenceItem();
                 evidence.setProject(project);
                 evidence.setLabel(evDto.label());
@@ -387,7 +435,7 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
             }
         }
 
-        // 4. Save new derived claims and link their evidence items
+        // 4. Save new derived claims and link only validated evidence
         if (analysis.claims() != null) {
             for (GeminiClaimDTO claimDto : analysis.claims()) {
                 DerivedClaim claim = new DerivedClaim();
@@ -396,7 +444,7 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
                 claim.setClaimValue(claimDto.claimValue());
                 claim.setExplanation(claimDto.explanation());
                 claim.setConfidence(claimDto.confidence() > 0 ? claimDto.confidence() : 80);
-                claim.setApprovalState(com.aditya.nexora.profileService.enums.ApprovalState.PENDING); // Awaiting developer approval
+                claim.setApprovalState(com.aditya.nexora.profileService.enums.ApprovalState.PENDING);
                 claim.setEvidenceItems(new ArrayList<>());
 
                 // Link supporting evidence items via the Join table
@@ -405,7 +453,6 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
                         EvidenceItem supportingItem = savedEvidenceMap.get(path);
                         if (supportingItem != null) {
                             claim.getEvidenceItems().add(supportingItem);
-                            // Sync bidirectional relationship
                             if (supportingItem.getClaims() == null) {
                                 supportingItem.setClaims(new ArrayList<>());
                             }
@@ -434,6 +481,11 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
         projectRepository.saveAndFlush(project);
 
         try {
+            // Load Candidate GitHub Username for stats verification
+            ConnectedSource source = connectedSourceRepository.findByUserIdAndProvider(project.getUserId(), SourceProvider.GITHUB)
+                    .orElseThrow(() -> new ResourceNotFoundException("GitHub connected source not found for user: " + project.getUserId()));
+            String candidateLogin = source.getGithubUsername();
+
             // Step 1: Fetch Repository Tree
             List<GitHubTreeItemDTO> tree = githubService.fetchRepositoryTree(
                     project.getOwnerLogin(),
@@ -464,15 +516,17 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
             );
 
             // Step 5: Build Gemini Prompt
-            String prompt = buildGeminiPrompt(project, treePaths, fileContents, commits, pulls);
+            String prompt = buildGeminiPrompt(project, treePaths, fileContents, commits, pulls, candidateLogin);
 
+            // Step 6 & 7: Call Spring AI
             GeminiAnalysisResponseDTO response = chatClient.prompt()
                     .user(prompt)
                     .call()
                     .entity(GeminiAnalysisResponseDTO.class);
 
-
-            saveAnalysisResults(project, response);
+            // Step 8: Save to database (with Section 8 Validation)
+            Set<String> actualPaths = new HashSet<>(treePaths);
+            saveAnalysisResults(project, response, actualPaths);
 
         } catch (Exception e) {
             log.error("Failed to perform project analysis for ID: {}", projectId, e);
