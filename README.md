@@ -1,19 +1,19 @@
-# Nexora — Engineering Evidence Analyzer
+# Nexora — The Proof-of-Work Developer Network
 
 ![Nexora](docs/nexora_logo_banner.jpg)
 
-**Nexora** is a proof-of-work professional network where developers showcase verified engineering work instead of self-claimed skills. The platform bridges the gap between raw code repositories and resume summaries by automatically translating commit history, pull requests, and codebase structures into a recruiter-readable, evidence-backed technical profile. 
+**Nexora** is a proof-of-work professional network built specifically for developers. Unlike traditional professional networks (like LinkedIn) that rely on self-reported resume skills and high-noise social feeds, Nexora connects directly to your GitHub to translate commits, pull requests, and codebase structures into a verified, project-first developer profile. 
 
-Built around the principle of **"evidence before assertion,"** Nexora provides recruiters and engineering leaders with a fast, trustworthy way to evaluate demonstrated technical capabilities, while giving developers a living, zero-maintenance portfolio that reflects their real-world contributions.
+It is a professional social media platform built around the core principle of **"evidence before assertion"**—ensuring every skill listed is backed by inspectable code citations, and replacing standard social updates with automated, high-signal feeds of verified engineering milestones.
 
 ---
 
 ## 🎯 Core Value Proposition
 
-### For Developers: The Zero-Maintenance Portfolio
+### For Developers: A Verifiable Professional Space
 *   **The Trajectory Dashboard:** Rather than a flat, green GitHub contribution grid that lacks context, Nexora parses daily commits and pushes to map growth and learning milestones in real time.
 *   **Architectural Explainer:** Translates complex repository trees and code changes into clean, recruiter-readable system diagrams, dependency lists, and tradeoff analyses.
-*   **Engineering Activity Feed (Upcoming):** LinkedIn feeds are saturated with low-signal self-promotion and text-based bragging. Nexora replaces "normal posts" with verified engineering updates. When you containerize a service or merge a critical security PR, Nexora automatically generates a structured activity post containing your system tradeoffs and code links, shifting the conversation from "talking about code" to "verifying shipped code."
+*   **Engineering Activity Feed (Upcoming):** Replaces traditional, low-signal social text posts with verified engineering updates. When you containerize a service or merge a critical security PR, Nexora automatically generates a structured activity post containing your system tradeoffs and code links, shifting the social conversation from "talking about code" to "verifying shipped code."
 
 ### For Recruiters: Hiring with Instant Trust
 *   **Bypassing the "Evaluation Tax":** Traditional technical screens are bogged down by buzzword stuffing (listing skills after a 10-minute tutorial). Nexora filters out the noise by requiring verified codebase proof for every claim.
