@@ -223,10 +223,17 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
 
     private boolean isSecretKey(String key) {
         String lower = key.toLowerCase();
-        return lower.contains("password") || lower.contains("secret") || lower.contains("key") 
-                || lower.contains("token") || lower.contains("credential") || lower.contains("private");
+        return lower.contains("pass")
+                || lower.contains("secret")
+                || lower.contains("key")
+                || lower.contains("token")
+                || lower.contains("credential")
+                || lower.contains("private")
+                || lower.contains("pwd")
+                || lower.contains("salt")
+                || lower.contains("cert")
+                || lower.contains("sign");
     }
-
     private String buildGeminiPrompt(Project project, List<String> treePaths, Map<String, String> fileContents, List<GitHubCommitDTO> commits, List<GitHubPullRequestDTO> pulls) {
         // 1. Gather tree metadata
         int totalFiles = treePaths.size();
@@ -459,13 +466,12 @@ public class AIAnalysisServiceImpl implements AIAnalysisService {
             // Step 5: Build Gemini Prompt
             String prompt = buildGeminiPrompt(project, treePaths, fileContents, commits, pulls);
 
-            // Step 6 & 7: Call Spring AI and parse into type-safe record directly!
             GeminiAnalysisResponseDTO response = chatClient.prompt()
                     .user(prompt)
                     .call()
-                    .entity(GeminiAnalysisResponseDTO.class); // Spring AI parses this automatically!
+                    .entity(GeminiAnalysisResponseDTO.class);
 
-            // Step 8: Save to database
+
             saveAnalysisResults(project, response);
 
         } catch (Exception e) {
