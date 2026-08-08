@@ -1,9 +1,6 @@
 package com.aditya.nexora.profileService.services;
 
-import com.aditya.nexora.profileService.dtos.GitHubCommitDTO;
-import com.aditya.nexora.profileService.dtos.GitHubProfileDTO;
-import com.aditya.nexora.profileService.dtos.GitHubTreeItemDTO;
-import com.aditya.nexora.profileService.dtos.RepositoryDTO;
+import com.aditya.nexora.profileService.dtos.*;
 import com.aditya.nexora.profileService.exception.BadRequestException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -371,6 +368,54 @@ public class GithubServiceImpl implements GithubService{
             log.error("Error while fetching commits for repo {}/{}", owner, repo, e);
             throw new BadRequestException("GitHub Commits fetch failed: " + e.getMessage());
         }
+    }
+
+    @Override
+    public List<GitHubPullRequestDTO> fetchPullRequests(String owner, String repo, String accessToken) {
+        String url = "https://api.github.com/repos/" + owner + "/" + repo + "/pulls?per_page=100";
+
+        try
+        {
+            List<Map<String, Object>> response = restClient.get()
+                    .uri(url)
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer "+accessToken)
+                    .header(HttpHeaders.USER_AGENT,"Nexora")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+
+
+            if(response==null)
+            {
+                return List.of();
+            }
+            List<GitHubPullRequestDTO> pulls = new ArrayList<>();
+
+            for(Map<String, Object> item: response)
+            {
+                Long id = getAsLong(item,"id");
+                String title = (String) item.get("title");
+                String body = (String) item.get("body");
+                String state = (String) item.get("state");
+
+                Map<String, Object> user = (Map<String, Object>) item.get("user");
+                String authorLogin = user!=null?(String) user.get("login"):null;
+
+                LocalDateTime createdAt = parseIsoDateTime((String) item.get("created_at"));
+                LocalDateTime mergedAt = parseIsoDateTime((String) item.get("merged_at"));
+
+                pulls.add(new GitHubPullRequestDTO(id,title,body,state,authorLogin,createdAt,mergedAt));
+
+
+            }
+            log.info("Successfully fetched pull request {} for repository {}/{}", pulls.size(), owner, repo);
+            return pulls;
+        }
+        catch (HttpClientErrorException e) {
+            log.error("Error while fetching pull requests for repo {}/{}", owner, repo, e);
+            throw new BadRequestException("GitHub Pull Requests fetch failed: " + e.getMessage());
+        }
+
     }
 
 
